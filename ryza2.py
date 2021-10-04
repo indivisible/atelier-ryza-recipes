@@ -13,11 +13,13 @@ DATA_DIR = 'ryza2_data'
 EFF_SUFFIXES = ('XS', 'S', 'M', 'L', 'XL')
 
 
+# NOTE: while ryza 2 has renamed thunder to lightning and air to wind
+# those are UI-only changes, while these affect XML parsing!
 class Element(Enum):
     FIRE = 'Fire'
     ICE = 'Ice'
-    THUNDER = 'Lightning'
-    AIR = 'Wind'
+    THUNDER = 'Thunder'
+    AIR = 'Air'
 
 
 ADD_ELEMENT_EFFECTS = {
