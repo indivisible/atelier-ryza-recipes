@@ -431,13 +431,13 @@ def print_item(item, items, effects, categories):
         print('  Ingredients: ' + ', '.join(ingredients))
 
     resolved_parents = []
-    parents = item['parents']
+    parents = set(item['parents'])
     while parents:
         if len(parents) > 1:
             print(f'!!WARNING: got multiple parents: {parents}')
         parent = items[parents.pop()]
         resolved_parents.insert(0, parent['name'])
-        parents = parent['parents']
+        parents = set(parent['parents'])
     parents_str = ' -> '.join(resolved_parents)
     if parents_str:
         print(f'  Parents: {parents_str}')
