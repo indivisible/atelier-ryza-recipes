@@ -8,10 +8,10 @@ from pprint import pprint
 # tag lists were pulled from `strings <game exe>`
 
 # FIXME: known bug: staltium has ITEM_EFF_CREATE_ATK_5 in xml but not in game?!
+# TODO: make codebase unified with ryza1
+# TODO: replace the whole dicts + procedural mess with classes
 
 DATA_DIR = 'ryza2_data'
-
-EFF_SUFFIXES = ('XS', 'S', 'M', 'L', 'XL')
 
 
 # NOTE: while ryza 2 has renamed thunder to lightning and air to wind
@@ -36,12 +36,6 @@ ELEMENT_RANGE_EFFECTS = {
     'ITEM_EFF_CREATE_MATERIAL_BOOST_17': 3,
     'ITEM_EFF_CREATE_MATERIAL_BOOST_18': 4,
 }
-
-
-def remove_start(text, start):
-    if text.startswith(start):
-        return text[len(start):]
-    return text
 
 
 def open_xml(path):
@@ -475,6 +469,7 @@ def main():
 
     args = main_parser.parse_args()
 
+    # late game powerful items can mess up early game chain searches
     disabled = [
         # 'red stone',
         # 'Philosopher\'s Stone',
