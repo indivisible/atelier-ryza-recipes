@@ -2,6 +2,7 @@
 
 import xml.etree.ElementTree as ET
 from enum import Enum
+from collections import defaultdict
 from pprint import pprint
 
 # tag lists were pulled from `strings <game exe>`
@@ -125,7 +126,7 @@ def parse_recipes(items, effects):
                 continue
             recipe = {
                 'item_tag': item_tag,
-                'effects': set(),
+                'effects': defaultdict(list),
                 'ingredients': [],
                 'recipe_category': node.get('RecipeCategory'),
             }
@@ -133,25 +134,27 @@ def parse_recipes(items, effects):
             item['recipe'] = recipe
         if not item:
             continue
-        for name, value in node.attrib.items():
+        mat_tag = node.get('MatTag')
+        # ensure that effects are in order
+        for name, value in sorted(node.attrib.items(), key=lambda e: e[0]):
             if value == 'ITEM_EFF_EFFECT_NONE':
                 continue
 
             if value in ELEMENT_RANGE_EFFECTS:
-                ev = item['element_value'] + ELEMENT_RANGE_EFFECTS[value]
-                item['max_element_value'] = max(item['max_element_value'], ev)
+                ev = ELEMENT_RANGE_EFFECTS[value]
+                item['add_element_value'] = max(item['add_element_value'], ev)
             elif value in ADD_ELEMENT_EFFECTS:
                 elem = ADD_ELEMENT_EFFECTS[value]
                 item['possible_elements'].add(elem)
 
-            if name.startswith('MassEffect'):
+            if name == 'MassEffect':
                 # default effect when no elements reached
-                recipe['effects'].add(value)
+                recipe['effects'][mat_tag].insert(0, value)
             elif name.startswith('AddEff'):
                 # added effects reachable with high element value
                 # FIXME: some of these might not be reachable if not used
                 #        in mixfielddata.xml
-                recipe['effects'].add(value)
+                recipe['effects'][mat_tag].append(value)
                 eff = effects[value]
                 if eff['type'] == 'add_category':
                     item['possible_categories'].add(eff['value'])
@@ -177,7 +180,7 @@ def parse_items(items):
         item['elements'] = set()
         item['possible_elements'] = set()
         item['element_value'] = 0
-        item['max_element_value'] = 0
+        item['add_element_value'] = 0
     for node in root.iter('itemData'):
         name_id = node.get('nameID')
         if name_id is None:
@@ -190,7 +193,6 @@ def parse_items(items):
             assert kind == 'ITEM_KIND_BOOK'
             continue
         item['element_value'] = int(node.get('elemValue', 0))
-        item['max_element_value'] = item['element_value']
         for elem in Element:
             attr = 'elem' + elem.value
             if node.get(attr) is not None:
@@ -389,31 +391,12 @@ def disable_items(items, to_disable):
 
 def format_effects(item, effects):
     recipe = item.get('recipe')
-    stat_effects = {}
     if not recipe:
         return None
     names = []
-    for eff in recipe['effects']:
-        # FIXME: does not handle (S, M, L, XL) affixes
-        # FIXME: probably would be better to parse effects better
+    for group in recipe['effects'].values():
+        eff = group[-1]
         name = effects[eff]['name']
-        split = name.rsplit(' ', 1)
-        if len(split) != 2:
-            names.append(name)
-            continue
-        stats, value = split
-        if value in EFF_SUFFIXES:
-            value = EFF_SUFFIXES.index(value)
-        elif value[0] in '+-':
-            value = int(value[1:].rstrip('%'))
-        else:
-            names.append(name)
-            continue
-        if stats in stat_effects:
-            if stat_effects[stats][0] >= value:
-                continue
-        stat_effects[stats] = (value, name)
-    for _, name in stat_effects.values():
         names.append(name)
     names.sort()
     return ', '.join(names)
@@ -437,8 +420,8 @@ def print_item(item, items, effects, categories):
         elems.append(elem.value + '*')
     elems_str = ', '.join(elems) or '(none)'
     elem_range = str(item['element_value'])
-    if item['max_element_value'] != item['element_value']:
-        elem_range += f"-{item['max_element_value']}"
+    if item['add_element_value'] > 0:
+        elem_range += f"+{item['add_element_value']}"
     print(f'  Elements: {elem_range} {elems_str}')
 
     effects_str = format_effects(item, effects)
