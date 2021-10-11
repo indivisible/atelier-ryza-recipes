@@ -35,6 +35,13 @@ ELEMENT_VALUES = {
 
 ELEMENT_LOOKUP = [Element.FIRE, Element.ICE, Element.THUNDER, Element.AIR]
 
+ELEMENT_STR_MAP = {
+    Element.FIRE: 4194395,
+    Element.ICE: 4194396,
+    Element.THUNDER: 4194397,
+    Element.AIR: 4194398,
+}
+
 # TODO: these MIGHT be listed in the string table
 KNOWN_RING_TYPES = {
     0: 'Effect 1',
@@ -455,7 +462,11 @@ class Item(TaggedObject):
 
         add_list('Categories', self.categories, self.possible_categories)
 
-        elems_str = list_str(self.elements, self.possible_elements.keys())
+        def translate_elems(elems: Iterable[Element]):
+            return [self.db.elements[elem] for elem in elems]
+
+        elems_str = list_str(translate_elems(self.elements),
+                             translate_elems(self.possible_elements.keys()))
         elem_range = str(self.element_value)
         if self.add_element_value > 0:
             elem_range += f"+{self.add_element_value}"
@@ -485,14 +496,16 @@ class Database:
     items: dict[str, Item]
     categories: dict[str, Category]
     effects: dict[str, Effect]
+    elements: dict[Element, str]
 
     data_dir: Path
 
-    def __init__(self, data_dir: Path):
+    def __init__(self, data_dir: Path, lang: str = 'en'):
         self.data_dir = data_dir
         self.items = {}
         self.categories = {}
         self.effects = {}
+        self.elements = {}
 
         # first load basic data: tags and names
         # these magic offsets are the same for ryza 1 & 2
@@ -504,9 +517,16 @@ class Database:
         for attr, factory, key, offset in init_data:
             tags_path = f'item_{key}_tags.txt'
             # TODO: localization?
-            strings_path = f'saves/text_en/str_item_{key}.xml'
+            strings_path = f'saves/text_{lang}/str_item_{key}.xml'
             val = self.get_tag_map(factory, tags_path, strings_path, offset)
             setattr(self, attr, val)
+
+        str_path = f'saves/text_{lang}/strcombineall.xml'
+        root = self.open_xml(Path(self.data_dir / str_path))
+        for element, offset in ELEMENT_STR_MAP.items():
+            node = root.find(f'./str[@String_No="{offset}"]')
+            assert node is not None
+            self.elements[element] = node.attrib['Text']
 
         self.parse_effects()
         self.parse_items()
@@ -520,6 +540,7 @@ class Database:
                 k: json_dump_helper(v, True)
                 for k, v in getattr(self, field).items()
             }
+        dump['elements'] = {k.value: v for k, v in self.elements.items()}
         return dump
 
     def find_items(self, query: str) -> Generator[Item, None, None]:
@@ -910,6 +931,7 @@ def main():
     main_parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     main_parser.add_argument('--game', type=str, default='ryza2')
+    main_parser.add_argument('--lang', type=str, default='en')
     main_parser.add_argument('-v', '--verbose', action='store_true')
     subparsers = main_parser.add_subparsers(dest='command')
 
@@ -931,7 +953,7 @@ def main():
 
     args = main_parser.parse_args()
 
-    db = Database(Path(f'{args.game}_data'))
+    db = Database(Path(f'{args.game}_data'), lang=args.lang)
     # db = Database(Path('ryza1_data'))
 
     # TODO: re-add this option?
