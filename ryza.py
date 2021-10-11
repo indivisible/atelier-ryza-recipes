@@ -39,6 +39,8 @@ ELEMENT_STR_MAP_GAME = {
         'ryza2': 4194395
         }
 
+EFFECT_DESC_OFFSET = 3538945
+
 # TODO: these MIGHT be listed in the string table
 KNOWN_RING_TYPES = {
     0: 'Effect 1',
@@ -63,6 +65,7 @@ class TaggedObject:
     tag: str
     name: str
     name_id: int
+    description: str = ''
 
     def __str__(self):
         return self.name
@@ -491,6 +494,7 @@ class Item(TaggedObject):
 
 class Database:
     game: str
+    lang: str
     items: dict[str, Item]
     categories: dict[str, Category]
     effects: dict[str, Effect]
@@ -500,12 +504,14 @@ class Database:
 
     def __init__(self, game: str, lang: str = 'en'):
         self.game = game
+        self.lang = lang
         self.data_dir = Path(f'{game}_data')
         self.items = {}
         self.categories = {}
         self.effects = {}
         self.elements = {}
 
+        self.strings = self.load_strings()
         # first load basic data: tags and names
         # these magic offsets are the same for ryza 1 & 2
         init_data = [
@@ -515,23 +521,22 @@ class Database:
         ]
         for attr, factory, key, offset in init_data:
             tags_path = f'item_{key}_tags.txt'
-            # TODO: localization?
-            strings_path = f'saves/text_{lang}/str_item_{key}.xml'
-            val = self.get_tag_map(factory, tags_path, strings_path, offset)
+            val = self.get_tag_map(factory, tags_path, offset)
             setattr(self, attr, val)
-
-        str_path = f'saves/text_{lang}/strcombineall.xml'
-        root = self.open_xml(Path(self.data_dir / str_path))
-        offset = ELEMENT_STR_MAP_GAME[self.game]
-        for idx, element in enumerate(Element):
-            node = root.find(f'./str[@String_No="{offset+idx}"]')
-            assert node is not None
-            self.elements[element] = node.attrib['Text']
 
         self.parse_effects()
         self.parse_items()
         self.parse_recipedata()
         self.parse_mixfield()
+        self.parse_descriptions()
+
+    def load_strings(self) -> dict[int, str]:
+        str_path = f'saves/text_{self.lang}/strcombineall.xml'
+        stringmap = {}
+        root = self.open_xml(Path(self.data_dir / str_path))
+        for node in root.iter('str'):
+            stringmap[int(node.attrib['String_No'])] = node.attrib['Text']
+        return stringmap
 
     def dump(self):
         dump = {}
@@ -548,6 +553,27 @@ class Database:
         for item in self.items.values():
             if query in item.tag or query in item.name.upper():
                 yield item
+
+    def parse_descriptions(self):
+        offset = ELEMENT_STR_MAP_GAME[self.game]
+        for idx, element in enumerate(Element):
+            self.elements[element] = self.strings[offset+idx]
+
+        offset = EFFECT_DESC_OFFSET
+        first_eff = next(iter(self.effects.values()))
+        for eff in self.effects.values():
+            idx = eff.name_id - first_eff.name_id + offset
+            desc = self.strings.get(idx)
+            if not desc:
+                continue
+            eff.description = desc
+
+        for item in self.items.values():
+            idx = item.name_id - 3276800
+            desc = self.strings.get(idx)
+            if not desc:
+                continue
+            item.description = desc
 
     def parse_mixfield(self):
         xml_path = self.data_dir / 'saves/mix/mixfielddata.xml'
@@ -637,28 +663,18 @@ class Database:
                 root = ET.fromstring(stream.read())
         return root
 
-    def get_tag_map(self, factory, tags_path, strings_path, offset):
+    def get_tag_map(self, factory, tags_path, offset: int):
         '''load tag list from flat file, then add ids and names from xml'''
         tags_path = self.data_dir / tags_path
-        strings_path = self.data_dir / strings_path
         tags = []
         with tags_path.open() as stream:
             for line in stream:
                 tags.append(line.strip())
 
-        root = self.open_xml(strings_path)
-        strings = {}
-        for node in root.iter('str'):
-            num_str = node.get('String_No')
-            assert num_str, node
-            num = int(num_str)
-            text = node.get('Text')
-            strings[num] = text
-
         name_map = {}
         for n, tag in enumerate(tags):
             name_id = n + offset
-            name = strings.get(name_id)
+            name = self.strings.get(name_id)
             if name:
                 name_map[tag] = factory(self, n, tag, name, name_id)
         return name_map
@@ -1005,7 +1021,7 @@ def main():
     elif args.command == 'dump-effects':
         for eff in db.effects.values():
             # FIXME: dump some useful effect data?
-            print(f'{eff.tag} -- {eff.name}')
+            print(f'{eff.tag} -- {eff.name} : {eff.description}')
     elif args.command == 'dump-json':
         # FIXME
         import json
