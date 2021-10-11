@@ -13,8 +13,7 @@ import string
 # tag lists were pulled from `strings <game exe>`
 
 
-# NOTE: while ryza 2 has renamed thunder to lightning and air to wind
-# those are UI-only changes, while these affect XML parsing!
+# these affect XML parsing, thunder and air is correct here
 class Element(Enum):
     FIRE = 'Fire'
     ICE = 'Ice'
@@ -33,14 +32,12 @@ ELEMENT_VALUES = {
     'ITEM_ELEM_AIR': Element.AIR,
 }
 
-ELEMENT_LOOKUP = [Element.FIRE, Element.ICE, Element.THUNDER, Element.AIR]
+ELEMENT_LOOKUP = list(Element)
 
-ELEMENT_STR_MAP = {
-    Element.FIRE: 4194395,
-    Element.ICE: 4194396,
-    Element.THUNDER: 4194397,
-    Element.AIR: 4194398,
-}
+ELEMENT_STR_MAP_GAME = {
+        'ryza1': 4063340,
+        'ryza2': 4194395
+        }
 
 # TODO: these MIGHT be listed in the string table
 KNOWN_RING_TYPES = {
@@ -493,6 +490,7 @@ class Item(TaggedObject):
 
 
 class Database:
+    game: str
     items: dict[str, Item]
     categories: dict[str, Category]
     effects: dict[str, Effect]
@@ -500,8 +498,9 @@ class Database:
 
     data_dir: Path
 
-    def __init__(self, data_dir: Path, lang: str = 'en'):
-        self.data_dir = data_dir
+    def __init__(self, game: str, lang: str = 'en'):
+        self.game = game
+        self.data_dir = Path(f'{game}_data')
         self.items = {}
         self.categories = {}
         self.effects = {}
@@ -523,8 +522,9 @@ class Database:
 
         str_path = f'saves/text_{lang}/strcombineall.xml'
         root = self.open_xml(Path(self.data_dir / str_path))
-        for element, offset in ELEMENT_STR_MAP.items():
-            node = root.find(f'./str[@String_No="{offset}"]')
+        offset = ELEMENT_STR_MAP_GAME[self.game]
+        for idx, element in enumerate(Element):
+            node = root.find(f'./str[@String_No="{offset+idx}"]')
             assert node is not None
             self.elements[element] = node.attrib['Text']
 
@@ -953,7 +953,7 @@ def main():
 
     args = main_parser.parse_args()
 
-    db = Database(Path(f'{args.game}_data'), lang=args.lang)
+    db = Database(args.game, lang=args.lang)
     # db = Database(Path('ryza1_data'))
 
     # TODO: re-add this option?
