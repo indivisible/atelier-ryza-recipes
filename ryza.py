@@ -1079,6 +1079,9 @@ def main():
         for eff in db.effects.values():
             # FIXME: dump some useful effect data?
             print(f'{eff.tag} -- {eff.name} : {eff.description}')
+    elif args.command == 'dump-categories':
+        for cat in db.categories.values():
+            print(f'{cat.tag} -- {cat.name}')
     elif args.command == 'dump-json':
         # FIXME
         import json
