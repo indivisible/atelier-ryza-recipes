@@ -240,7 +240,6 @@ class Mixfield:
 
     def __init__(self, recipe: Recipe, fielddata: ET.Element):
         self.rings = {}
-        self.tag = fielddata.attrib['tag']
 
         for idx, node in self.find_reachable_rings(fielddata).items():
             self.rings[idx] = MixfieldRing(recipe, node)
