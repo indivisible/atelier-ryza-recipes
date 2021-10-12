@@ -158,7 +158,7 @@ class MixfieldRing:
         else:
             tag = ring.attrib['ex_material']
             self.ingredient = recipe.db.items[tag]
-        self.essential = ring.get('is_essential') is not None
+        self.is_essential = ring.get('is_essential') is not None
         self.element = ELEMENT_LOOKUP[int(ring.attrib['elem'])]
 
         con = ring.find('Connect')
@@ -210,15 +210,15 @@ class MixfieldRing:
                 target.parents.append(item)
             return
 
-        # we only care about morph and effect rings
-        if self.type not in (0, 1, 2, 3):
-            return
-
         if self.ingredient not in item.ingredients:
             item.ingredients.append(self.ingredient)
         if self.is_essential:
             if self.ingredient not in item.essential_ingredients:
                 item.essential_ingredients.append(self.ingredient)
+
+        # we only care about morph and effect rings
+        if self.type not in (0, 1, 2, 3):
+            return
 
         # make sure the effect group exists
         while len(item.effects) <= self.type:
@@ -476,7 +476,8 @@ class Item(TaggedObject):
             effects = self.format_effects()
             if effects:
                 lines.append(f'  Effects: {effects}')
-            add_list('Ingredients', self.ingredients)
+        add_list('Ingredients', self.ingredients)
+        add_list('Essential ingredients', self.essential_ingredients)
         resolved_parents = []
         parents = self.parents
         while parents:
