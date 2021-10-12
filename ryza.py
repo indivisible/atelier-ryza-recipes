@@ -863,11 +863,32 @@ def print_map(item: Item) -> None:
     print()
 
 
+def find_routes_from_category(db: Database,
+                              source: Category,
+                              target_item: Optional[Item] = None,
+                              target_category: Optional[Category] = None,
+                              limit: int = 5):
+    assert target_item or target_category
+    assert not (target_item and target_category)
+
+    if target_item:
+        if source in target_item.ingredients:
+            yield [source, target_item]
+            return
+
+    for tag, item in db.items.items():
+        if source in item.ingredients:
+            chains = find_routes(db, item, target_item, target_category, set(),
+                                 limit)
+            for chain in chains:
+                yield [source] + chain
+
+
 def find_routes(db: Database,
                 this_item: Item,
                 target_item: Optional[Item] = None,
                 target_category: Optional[Category] = None,
-                visited: set[str] = None,
+                visited: Optional[set[str]] = None,
                 limit: int = 5):
     assert target_item or target_category
     assert not (target_item and target_category)
@@ -919,7 +940,7 @@ def describe_chain(chain: list[Item]):
 
 def print_best_chains(chains: Iterable[list[Item]],
                       limit: int = 3,
-                      indent: str = ''):
+                      prefix: str = ''):
     scored_chains = [(len(chain), chain) for chain in chains]
     scored_chains.sort(key=lambda i: i[0])
     min_score = None
@@ -929,16 +950,7 @@ def print_best_chains(chains: Iterable[list[Item]],
                 min_score = score
             if score > min_score:
                 break
-        # print(indent + ' -> '.join(i['name'] for i in chain))
-        print(indent + describe_chain(chain))
-
-
-def find_category(categories, name):
-    name = name.lower().strip('()')
-    for cat in categories.values():
-        if cat['name'].lower().strip('()') == name:
-            return cat
-    raise KeyError(f'category {name!r} not found')
+        print(prefix + describe_chain(chain))
 
 
 def format_effects(item, effects):
@@ -1001,6 +1013,7 @@ def main():
     recipe_find_parser.add_argument('category', type=str.lower)
 
     subparsers.add_parser('dump-effects', help='dump effect names')
+    subparsers.add_parser('dump-categories', help='dump category names')
 
     dump_json = subparsers.add_parser('dump-json', help='dump effect names')
     dump_json.add_argument('dump_file', type=argparse.FileType('w'))
@@ -1032,16 +1045,12 @@ def main():
                     item.print(args.verbose)
                     seen.add(item.tag)
     elif args.command == 'chain':
-        source = db.find_item(args.source)
-        assert source
-        try:
-            target_item = db.find_item(args.target)
-        except KeyError:
-            target_item = None
-        try:
-            target_cat = db.find_category(args.target)
-        except KeyError:
-            target_cat = None
+        source_item = db.find_item(args.source)
+        source_cat = db.find_category(args.source)
+        assert source_item or source_cat
+        assert not (source_item and source_cat)
+        target_item = db.find_item(args.target)
+        target_cat = db.find_category(args.target)
         if not target_item and not target_cat:
             raise (KeyError(f'{args.target} not found!'))
         if target_item and target_cat:
@@ -1053,9 +1062,19 @@ def main():
         target = target_item or target_cat
         assert target
         target_name = target.name
+        source = source_item or source_cat
+        assert source
         print(f'Finding craft chain from {source.name} to {target_name}...')
-        chains = find_routes(db, source, target_item, target_cat)
-        print_best_chains(chains)
+        if source_cat:
+            chains = find_routes_from_category(db, source_cat, target_item, target_cat)
+            headless = []
+            for chain in chains:
+                headless.append(chain[1:])
+            print_best_chains(headless, prefix=f'{source_cat.name} -> ')
+        else:
+            assert source_item
+            chains = find_routes(db, source_item, target_item, target_cat)
+            print_best_chains(chains)
     elif args.command == 'dump-effects':
         for eff in db.effects.values():
             # FIXME: dump some useful effect data?
