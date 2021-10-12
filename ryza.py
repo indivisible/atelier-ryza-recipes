@@ -783,8 +783,11 @@ def print_map(item: Item) -> None:
             'type': ring.type,
             'elem': ring.element.name,
             'item': ring.ingredient.tag,
-            'ev_lv': ring.ev_lv
         }
+        if ring.ev_lv:
+            ring_info['ev_lv'] = ring.ev_lv
+        if ring.is_essential:
+            ring_info['essential'] = 1
         print(ring_info)
     width = (max_x - min_x + 1) * 2
     height = (max_y - min_y + 1) * 2
