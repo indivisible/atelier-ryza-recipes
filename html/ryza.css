@@ -1,0 +1,129 @@
+/*
+ * FIXME: make layout responsive: probably transition to CSS grid
+ * */
+
+/*#search-bar {
+  margin-bottom: 1em;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}*/
+
+/*fieldset {
+  border: none;
+}*/
+
+.inline-list {
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+}
+
+.inline-list li {
+  display: inline-block;
+}
+
+.inline-list li::after {
+  content: ", ";
+  margin-right: 0.3em;
+}
+
+.inline-list li:last-child::after {
+  content: "";
+}
+
+.optional:after {
+  content: "*";
+  color: red;
+}
+
+#result-table th {
+  text-align: left;
+}
+
+tbody.item-box:before {
+  line-height: 1em;
+  content: "\200C";
+  display: block;
+}
+
+.item-title {
+  background-color: #eee;
+}
+
+.item-title .item-tag {
+  padding-left: 1em;
+  font-weight: normal;
+  opacity: 0.6;
+  font-size: smaller;
+}
+
+.misc-info {
+  display: inline-block;
+  margin-left: 1em;
+  font-weight: normal;
+  font-size: smaller;
+}
+
+#results-container {
+  max-width: 40em;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.elem-icon > span {
+  display: none;
+}
+
+.elem-fire::after {
+  content: '🔥';
+}
+
+.elem-ice::after {
+  content: '❄️';
+}
+
+.elem-thunder::after {
+  content: '⚡';
+}
+
+.elem-air::after {
+  content: '💨';
+}
+
+.elem-inactive {
+  filter: grayscale(1);
+  opacity: 0.2;
+}
+
+.elem-icon {
+  font-size: 1em;
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  box-sizing: initial;
+
+  background: #fff;
+  border: 0.1em solid #666;
+  color: #666;
+  text-align: center;
+  border-radius: 50%;
+
+  line-height: 1.2em;
+  box-sizing: content-box;
+}
+
+ul.elements li {
+  display: inline-block;
+  margin-left: 0.3em;
+}
+
+ul.elements {
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+}
+
+ul.parents li:after {
+  content: " 🡆";
+}
