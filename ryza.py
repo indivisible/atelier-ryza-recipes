@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from itertools import count
 import string
+import csv
 
 # tag lists were pulled from `strings <game exe>`
 
@@ -375,6 +376,10 @@ class Item(TaggedObject):
 
     ev_base: Optional[Item] = None
 
+    gathering: Optional[str] = None
+    shop_data: Optional[str] = None
+    seed: Optional[Item] = None
+
     def parse_itemdata(self, node: ET.Element):
         self.recipe = None
         self.children = []
@@ -530,13 +535,15 @@ class Database:
         self.parse_recipedata()
         self.parse_mixfield()
         self.parse_descriptions()
+        self.parse_gathering()
 
     def load_strings(self) -> dict[int, str]:
         str_path = f'saves/text_{self.lang}/strcombineall.xml'
         stringmap = {}
         root = self.open_xml(Path(self.data_dir / str_path))
         for node in root.iter('str'):
-            stringmap[int(node.attrib['String_No'])] = node.attrib['Text']
+            text = node.attrib['Text'].strip(' \r\t\u200b')
+            stringmap[int(node.attrib['String_No'])] = text
         return stringmap
 
     def dump(self):
@@ -554,6 +561,33 @@ class Database:
         for item in self.items.values():
             if query in item.tag or query in item.name.upper():
                 yield item
+
+    def parse_gathering(self):
+        csv_path = self.data_dir / 'materials.csv'
+        if not csv_path.exists():
+            return
+        seeds = {}
+        for num in count(1):
+            tag = f'ITEM_MIX_MATERIAL_SEED_{num:03d}'
+            seed = self.items.get(tag)
+            if not seed:
+                break
+            seeds[seed.name.split()[0]] = seed
+        with csv_path.open() as fp:
+            for row in csv.DictReader(fp):
+                # FIXME: DLC items are missing
+                name = row['Item'].strip(' \r\t\u200b')
+                for item in self.items.values():
+                    if item.name == name:
+                        break
+                else:
+                    # print(f'unknown item {name!r}')
+                    continue
+                item.gathering = row['Location Info']
+                item.shop_data = row['Development Info']
+                seed = row['Seed']
+                if seed:
+                    item.seed = seeds[row['Seed']]
 
     def parse_descriptions(self):
         offset = ELEMENT_STR_MAP_GAME[self.game]
