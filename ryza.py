@@ -870,15 +870,13 @@ def find_routes_from_category(db: Database,
 
     if target_item:
         if source in target_item.ingredients:
-            yield [source, target_item]
+            yield [target_item]
             return
 
-    for tag, item in db.items.items():
+    for item in db.items.values():
         if source in item.ingredients:
-            chains = find_routes(db, item, target_item, target_category, set(),
-                                 limit)
-            for chain in chains:
-                yield [source] + chain
+            yield from find_routes(db, item, target_item, target_category,
+                                   set(), limit)
 
 
 def find_routes(db: Database,
@@ -1063,11 +1061,9 @@ def main():
         assert source
         print(f'Finding craft chain from {source.name} to {target_name}...')
         if source_cat:
-            chains = find_routes_from_category(db, source_cat, target_item, target_cat)
-            headless = []
-            for chain in chains:
-                headless.append(chain[1:])
-            print_best_chains(headless, prefix=f'{source_cat.name} -> ')
+            chains = find_routes_from_category(db, source_cat, target_item,
+                                               target_cat)
+            print_best_chains(chains, prefix=f'{source_cat.name} -> ')
         else:
             assert source_item
             chains = find_routes(db, source_item, target_item, target_cat)
