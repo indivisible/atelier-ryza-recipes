@@ -35,10 +35,7 @@ ELEMENT_VALUES = {
 
 ELEMENT_LOOKUP = list(Element)
 
-ELEMENT_STR_MAP_GAME = {
-        'ryza1': 4063340,
-        'ryza2': 4194395
-        }
+ELEMENT_STR_MAP_GAME = {'ryza1': 4063340, 'ryza2': 4194395}
 
 EFFECT_DESC_OFFSET = 3538945
 
@@ -592,7 +589,7 @@ class Database:
     def parse_descriptions(self):
         offset = ELEMENT_STR_MAP_GAME[self.game]
         for idx, element in enumerate(Element):
-            self.elements[element] = self.strings[offset+idx]
+            self.elements[element] = self.strings[offset + idx]
 
         offset = EFFECT_DESC_OFFSET
         first_eff = next(iter(self.effects.values()))
