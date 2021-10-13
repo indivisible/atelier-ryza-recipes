@@ -1,6 +1,14 @@
-/*
- * FIXME: make layout responsive: probably transition to CSS grid
- * */
+* {
+  --elem-fire-color: #f03a02;
+  --elem-ice-color: #04b5db;
+  --elem-thunder-color: #e3bb05;
+  --elem-air-color: #589b1d;
+}
+
+#search-bar label {
+  display: inline-flex;
+  align-items: center;
+}
 
 svg.mixfield {
   max-height: 600px;
@@ -18,36 +26,25 @@ circle.loop-essential {
 }
 
 circle.loop-elem-Fire {
-  stroke: #f03a02;
+  stroke: var(--elem-fire-color);
 }
 
 circle.loop-elem-Ice {
-  stroke: #04b5db;
+  stroke: var(--elem-ice-color);
 }
 
 circle.loop-elem-Thunder {
-  stroke: #e3bb05;
+  stroke: var(--elem-thunder-color);
 }
 
 circle.loop-elem-Air {
-  stroke: #589b1d;
+  stroke: var(--elem-air-color);
 }
 
 path.connection {
   stroke-width: 5;
   stroke: #66f;
 }
-
-/*#search-bar {
-  margin-bottom: 1em;
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-}*/
-
-/*fieldset {
-  border: none;
-}*/
 
 .inline-list {
   display: inline-block;
@@ -111,47 +108,30 @@ tbody.item-box:before {
   display: none;
 }
 
-.elem-fire::after {
-  content: '🔥';
+.atelier-ryza2-fire {
+  color: var(--elem-fire-color);
 }
 
-.elem-ice::after {
-  content: '❄️';
+.atelier-ryza2-ice {
+  color: var(--elem-ice-color);
 }
 
-.elem-thunder::after {
-  content: '⚡';
+.atelier-ryza2-lightning {
+  color: var(--elem-thunder-color);
 }
 
-.elem-air::after {
-  content: '💨';
+.atelier-ryza2-wind {
+  color: var(--elem-air-color);
 }
 
 .elem-inactive {
-  filter: grayscale(1);
-  opacity: 0.2;
-}
-
-.elem-icon {
-  font-size: 1em;
-  display: inline-block;
-  width: 1.2em;
-  height: 1.2em;
-  box-sizing: initial;
-
-  background: #fff;
-  border: 0.1em solid #666;
-  color: #666;
-  text-align: center;
-  border-radius: 50%;
-
-  line-height: 1.2em;
-  box-sizing: content-box;
+  color: grey;
 }
 
 ul.elements li {
   display: inline-block;
   margin-left: 0.3em;
+  vertical-align: middle;
 }
 
 ul.elements {

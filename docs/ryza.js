@@ -1,7 +1,13 @@
 var db;
 var itemIndex;
 const MAX_RESULTS = 100;
-const ELEMENTS = ['Fire', 'Ice', 'Thunder', 'Air'];
+// order and icon classes
+const ELEMENTS = {
+  'Fire': 'atelier-ryza2-fire',
+  'Ice': 'atelier-ryza2-ice',
+  'Thunder': 'atelier-ryza2-lightning',
+  'Air': 'atelier-ryza2-wind'
+};
 var popupModal;
 
 
@@ -109,12 +115,12 @@ function getMixfieldInfo(item) {
 
 function renderElements(item) {
   const elems = [];
-  for (const elem of ELEMENTS) {
+  for (const [elem, icon] of Object.entries(ELEMENTS)) {
     const normal = item['elements'].includes(elem);
     const optional = item['possible_elements'][elem];
     const active = normal || optional;
-    const classes = ['elem-icon'];
-    classes.push('elem-' + elem.toLowerCase());
+    const classes = ['elem-icon', 'icon', 'icon-lg'];
+    classes.push(icon);
     classes.push((active ? 'elem-active' : 'elem-inactive'));
     const name = db['elements'][elem];
     let liAttrs = {'title': name};
@@ -123,7 +129,7 @@ function renderElements(item) {
     if (optional) {
       liAttrs = {'class': 'optional', 'title': `${name} (from ${optional} effect)`};
     }
-    elems.push(tag('li', liAttrs, [tag('span', {'class': classes.join(' ')}, [tag('span', {}, [name])])]));
+    elems.push(tag('li', liAttrs, [tag('span', {'class': classes.join(' ')}, [])]));
   }
   let elementValue = '' + item['element_value'];
   if (item['add_element_value'] > 0) {
