@@ -2,6 +2,42 @@
  * FIXME: make layout responsive: probably transition to CSS grid
  * */
 
+svg.mixfield {
+  max-height: 600px;
+  background-color: #009;
+}
+
+circle.loop {
+  fill: #fff;
+  stroke-width: 3;
+  stroke: black;
+}
+
+circle.loop-essential {
+  stroke-width: 7;
+}
+
+circle.loop-elem-Fire {
+  stroke: #f03a02;
+}
+
+circle.loop-elem-Ice {
+  stroke: #04b5db;
+}
+
+circle.loop-elem-Thunder {
+  stroke: #e3bb05;
+}
+
+circle.loop-elem-Air {
+  stroke: #589b1d;
+}
+
+path.connection {
+  stroke-width: 5;
+  stroke: #66f;
+}
+
 /*#search-bar {
   margin-bottom: 1em;
   display: flex;

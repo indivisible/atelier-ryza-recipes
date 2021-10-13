@@ -31,6 +31,82 @@ function appendChildren(parent, children) {
   return parent
 }
 
+function renderMixfield(item, recipe, mixfield, ev_lv=0) {
+  // TODO: proper ring information
+  const scale = 50;
+  // loop radius
+  const radius = 26;
+  // padding for the whole image
+  const padding = 10;
+  const attrs = {
+    'class': 'mixfield rounded mx-auto d-block',
+  };
+  const rings = {};
+  for (const [idx, ring] of Object.entries(mixfield.rings)) {
+    if (ring.ev_lv <= ev_lv)
+      rings[idx] = ring;
+  }
+  // we adjust the viewBox to cover the image, so we don't have to
+  // shift all the coordinates
+  const minX = Math.min(...Object.values(rings).map(ring => ring.x));
+  const maxX = Math.max(...Object.values(rings).map(ring => ring.x));
+  const minY = Math.min(...Object.values(rings).map(ring => ring.y));
+  const maxY = Math.max(...Object.values(rings).map(ring => ring.y));
+  const viewbox = [
+    (minX-1) * scale - padding,
+    (minY-1) * scale - padding,
+    (maxX - minX + 2) * scale + padding*2,
+    (maxY - minY + 2) * scale + padding*2,
+  ];
+  attrs['viewBox'] = viewbox.join(' ')
+
+  const svgTag = (name, attrs) => {
+    const e = document.createElementNS('http://www.w3.org/2000/svg', name);
+    for (const [k, v] of Object.entries(attrs))
+      e.setAttribute(k, v);
+    return e;
+  }
+
+  const svg = svgTag('svg', attrs);
+
+  // first draw the connections
+  const pathParts = [];
+  for (const ring of Object.values(rings)) {
+    if (ring.parent_idx === null)
+      continue;
+    const parent = rings[ring.parent_idx];
+    const x = ring.x * scale, y = ring.y * scale;
+    const px = parent.x * scale, py = parent.y * scale;
+    pathParts.push(`M${x},${y}L${px},${py}`);
+  }
+  if (pathParts)
+    svg.appendChild(svgTag('path', {'d': pathParts.join(''), 'class': 'connection'}));
+  // next draw the rings
+  for (const ring of Object.values(rings)){
+    const cx = ring.x * scale, cy = ring.y * scale;
+    const classes = ['loop', 'loop-type-' + ring.type, 'loop-elem-' + ring.element];
+    if (ring.is_essential)
+      classes.push('loop-essential');
+    svg.appendChild(svgTag('circle', {class: classes.join(' '), cx, cy, r: radius}));
+  }
+  return svg;
+}
+
+function showMixfield(...args) {
+  popup(tag('div', {'class': 'mixfield-container'}, [renderMixfield(...args)]));
+}
+
+function getMixfieldInfo(item) {
+  let target = item;
+  let ev_lv = 0;
+  if (item.ev_base) {
+    target = db.items[item.ev_base];
+    ev_lv = 1;
+  }
+  if (target.recipe && target.recipe.mixfield)
+    return [item, target.recipe, target.recipe.mixfield, ev_lv];
+}
+
 function renderElements(item) {
   const elems = [];
   for (const elem of ELEMENTS) {
@@ -74,7 +150,7 @@ function popup(contents) {
 function itemPopup(e) {
   e.preventDefault();
   const item = db.items[e.target.dataset.linkTag];
-  console.log(item);
+  console.debug(item);
   popup(renderItem(item));
 }
 
@@ -166,6 +242,13 @@ function renderItem(item) {
   if (ingredients.length) {
     const tags = ingredients.map(ingTag => tag('li', {}, [link(ingTag)]));
     addRow('Ingredients', tag('ul', {'class': 'inline-list ingredients'}, tags));
+    const mixfieldParams = getMixfieldInfo(item);
+    if (mixfieldParams) {
+      const mixfieldButton = tag('button', {'class': 'btn btn-primary'}, 'Show');
+      addRow('Loops', mixfieldButton);
+      mixfieldButton.addEventListener('click', () => showMixfield(...mixfieldParams));
+      // elems.push(tag('div', {'class': 'col-sm-12'}, [renderMixfield(item)]))
+    }
   }
 
   // TODO: handle ev-link relations
