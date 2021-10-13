@@ -710,6 +710,32 @@ class Database:
                 name_map[tag] = factory(self, n, tag, name, name_id)
         return name_map
 
+    def find_item_or_category(
+            self, query: str) -> tuple[Optional[Item], Optional[Category]]:
+        query = query.upper()
+        item_match = None
+        cat_match = None
+        # 1st check if the query is an exact tag
+        if query in self.items:
+            return (self.items[query], None)
+        if query in self.categories:
+            return (None, self.categories[query])
+        for item in self.items.values():
+            haystack = item.name.upper()
+            if query == haystack:
+                return (item, None)
+            elif query in haystack and not item_match:
+                item_match = item
+        for cat in self.categories.values():
+            haystack = cat.name.upper()
+            if query == haystack:
+                return (None, cat)
+            elif query in haystack and not cat_match:
+                cat_match = cat
+        if item_match:
+            return (item_match, None)
+        return (None, cat_match)
+
     def find_item(self, query: str) -> Optional[Item]:
         query = query.upper()
         for tag, item in self.items.items():
@@ -1039,26 +1065,22 @@ def main():
                     item.print(args.verbose)
                     seen.add(item.tag)
     elif args.command == 'chain':
-        source_item = db.find_item(args.source)
-        source_cat = db.find_category(args.source)
-        assert source_item or source_cat
+        source_item, source_cat = db.find_item_or_category(args.source)
+        if not (source_item or source_cat):
+            print(f'{args.source} not found!')
+            return 1
         assert not (source_item and source_cat)
-        target_item = db.find_item(args.target)
-        target_cat = db.find_category(args.target)
-        if not target_item and not target_cat:
-            raise (KeyError(f'{args.target} not found!'))
-        if target_item and target_cat:
-            print('Warning: both item and category found:')
-            print(target_item.name)
-            print(target_cat.name)
-            print()
-            target_cat = None
-        target = target_item or target_cat
-        assert target
-        target_name = target.name
+
+        target_item, target_cat = db.find_item_or_category(args.target)
+        if not (target_item or target_cat):
+            print(f'{args.target} not found!')
+            return 1
+        assert not (target_item and target_cat)
         source = source_item or source_cat
         assert source
-        print(f'Finding craft chain from {source.name} to {target_name}...')
+        target = target_item or target_cat
+        assert target
+        print(f'Finding craft chain from {source.name} to {target.name}...')
         if source_cat:
             chains = find_routes_from_category(db, source_cat, target_item,
                                                target_cat)
