@@ -10,7 +10,11 @@
   </head>
   <body>
     <main class="container">
-      <div id="search-bar" class="container d-flex flex-wrap justify-content-center">
+      <div id="search-bar" class="container d-flex flex-wrap justify-content-center align-items-center">
+        <div class="btn-group p-2">
+          <button type="button" class="btn btn-info" id="help-button" title="Help" data-bs-toggle="modal" data-bs-target="#help-popup">?</button>
+          <a class="btn btn-primary" href="https://github.com/indivisible/atelier-ryza-recipes" title="See on GitHub">GitHub</a>
+        </div>
         <div class="p-2">
           <label>Game: <select id="game-input">
               <option value="ryza1.json">Ryza 1</option>
@@ -42,6 +46,32 @@
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="help-popup" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Help</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <h4>Atelier Ryza 1/2 item database</h4>
+              <p>Start typing item or category name in the 'Name' field, to search for. You can also search for items by effects. For example to search for gases that can have effecct spread enter "gas" in the Name field, and "spread" in the Effect field.</p>
+              <p>You can also filter the results by checking one or more elements you want the item to (possibly) have.</p>
+              <h4>Bugs / missing features</h4>
+              <ul>
+                <li>DLC items are not available at the moment</li>
+                <li>Chain finding is missing</li>
+                <li>Full recipe display is missing</li>
+              </ul>
+              <h4>Credits</h4>
+              <ul>
+                <li>Thanks to Replekia for permission to use data from his <a href="https://gamefaqs.gamespot.com/ps4/296164-atelier-ryza-2-lost-legends-and-the-secret-fairy/faqs/79001">awesome guide</a></li>
+                <li><a href="https://github.com/VitaSmith/gust_tools/">Gust tools</a> for data file unpacking</li>
+              </ul>
             </div>
           </div>
         </div>
