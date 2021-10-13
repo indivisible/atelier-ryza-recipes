@@ -1016,8 +1016,14 @@ def main():
 
     main_parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    main_parser.add_argument('--game', type=str, default='ryza2')
-    main_parser.add_argument('--lang', type=str, default='en')
+    main_parser.add_argument('--game',
+                             type=str,
+                             default='ryza2',
+                             help='game to use (ryza1 or ryza2)')
+    main_parser.add_argument('--lang',
+                             type=str,
+                             default='en',
+                             help='2 letter language code')
     main_parser.add_argument('-v', '--verbose', action='store_true')
     subparsers = main_parser.add_subparsers(dest='command')
 
@@ -1025,8 +1031,12 @@ def main():
     item_info_parser.add_argument('item_names', nargs='*', type=str.lower)
 
     item_chain_parser = subparsers.add_parser('chain', help='find craft chain')
-    item_chain_parser.add_argument('source', type=str.lower)
-    item_chain_parser.add_argument('target', type=str.lower)
+    item_chain_parser.add_argument('source',
+                                   type=str.lower,
+                                   help='category or item to start chain from')
+    item_chain_parser.add_argument('target',
+                                   type=str.lower,
+                                   help='category or item to chain to')
 
     recipe_find_parser = subparsers.add_parser('category',
                                                help='find recipe for category')
