@@ -904,6 +904,7 @@ def find_routes_from_category(db: Database,
                                    set(), limit)
 
 
+# FIXME: replace this horrible thing with Yen's algorithm
 def find_routes(db: Database,
                 this_item: Item,
                 target_item: Optional[Item] = None,

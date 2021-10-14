@@ -5,6 +5,11 @@
   --elem-air-color: #589b1d;
 }
 
+#find-chains-button:disabled {
+  background-color: transparent;
+  color: var(--bs-success);
+}
+
 #search-bar label {
   display: inline-flex;
   align-items: center;

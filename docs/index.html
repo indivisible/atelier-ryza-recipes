@@ -38,6 +38,16 @@
           <label><input type="checkbox" class="element" value="Air"><span class="elem-icon icon icon-lg atelier-ryza2-wind"><span>Wind</span></label>
         </div>
       </div>
+      <div id="chain-container" class="container" style="/*display: none;*/">
+        <div id="chain-settings" class="container d-flex flex-wrap justify-content-center align-items-center">
+          <div class="p-2">Start: <div id="chain-start" class="d-inline-block btn-group">(none)</div></div>
+          <button class="btn btn-secondary" id="chain-swap-button">⬌</button>
+          <div class="p-2">Goal: <div id="chain-goal" class="d-inline-block btn-group">(none)</div></div>
+          <button id="find-chains-button" class="btn btn-success mx-2" disabled>Find chains!</button>
+          <button id="clear-chains-button" class="btn btn-danger mx-2">Clear</button>
+        </div>
+        <ol id="chain-results" class="list-group"></ol>
+      </div>
       <div id="results-container" class="container-sm">
         <span id="result-count">Loading...</span>
         <div id="results"></div>

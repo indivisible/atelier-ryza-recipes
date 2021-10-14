@@ -37,6 +37,220 @@ function appendChildren(parent, children) {
   return parent
 }
 
+// cache for efficient chain finding
+// to- and fromCategory are separate since we only care about categories
+// when they are start or end points. Including them mid-chain would pollute
+// the k-shortest paths search results
+var connected, toCategory, fromCategory;
+function buildChainCache() {
+  if (connected)
+    return;
+  const conTypes = {
+    BASE_CATEGORY: {cost: 0},
+    EFFECT_CATEGORY: {cost: 0},
+    ESSENCE_CATEGORY: {cost: 0},
+    MORPH: {cost: 1},
+    INGREDIENT: {cost: 1},
+    CAT_INGREDIENT: {cost: 1},
+    EV_LINK: {cost: 1},
+  };
+  for (const [idx, o] of Object.entries(conTypes).entries()) {
+    o[1].name = o[0];
+    o[1].sort = idx;
+  }
+  connected = {};
+  toCategory = {};
+  fromCategory = {};
+
+  const addCon = (cons, a, b, type) => {
+    if (!cons[a][b] || cons[a][b].sort > type.sort)
+      cons[a][b] = type;
+  }
+
+  for (const tag of Object.keys(db.items)) {
+    connected[tag] = {}
+  }
+  for (const tag of Object.keys(db.categories)) {
+    toCategory[tag] = {}
+    fromCategory[tag] = {}
+  }
+
+  for (const item of Object.values(db.items)) {
+    for (const cat of item.categories) {
+      addCon(toCategory, cat, item.tag, conTypes.BASE_CATEGORY);
+    }
+    for (const cat of item.possible_categories) {
+      // FIXME: separate essence and normal effect unlocks
+      addCon(toCategory, cat, item.tag, conTypes.EFFECT_CATEGORY);
+    }
+    for (const child of item.children)
+      addCon(connected, item.tag, child, conTypes.MORPH);
+    if (item.ev_base)
+      addCon(connected, item.ev_base, item.tag, conTypes.EV_LINK);
+    for (const ingredient of item.ingredients){
+      if (db.categories.hasOwnProperty(ingredient))
+        addCon(fromCategory, ingredient, item.tag, conTypes.INGREDIENT);
+      else
+        addCon(connected, ingredient, item.tag, conTypes.INGREDIENT);
+    }
+  }
+  for (const cat of Object.keys(db.categories)) {
+    const toItems = Object.keys(fromCategory[cat]);
+    const fromItems = Object.keys(toCategory[cat]);
+    for (const a of fromItems) {
+      for (const b of toItems) {
+        const con = {...conTypes.CAT_INGREDIENT, category: cat};
+        addCon(connected, a, b, con);
+      }
+    }
+  }
+}
+
+function findPathDijkstra(start, target) {
+  const unvisited = new Set(Object.keys(connected));
+  const distances = {};
+  const prev = {}
+  for (const tag of unvisited) {
+    distances[tag] = Infinity;
+    prev[tag] = null;
+  }
+  distances[start] = 0;
+
+  while (unvisited.size) {
+    let minItem = null;
+    for (const i of unvisited) {
+      if (minItem == null || minItem[1] > distances[i])
+        minItem = [i, distances[i]];
+    }
+    let [current, value] = minItem;
+    unvisited.delete(current);
+    if (current == target)
+      break;
+
+    for (const [next, con] of Object.entries(connected[current])) {
+      if (!unvisited.has(next))
+        continue;
+      const d = value + con.cost;
+      if (d < distances[next]) {
+        distances[next] = d;
+        prev[next] = current;
+      }
+    }
+  }
+  const path = [];
+  let current = target;
+  if (prev[current] || current == start) {
+    while (current) {
+      path.unshift(current);
+      current = prev[current];
+    }
+  }
+  return path;
+}
+
+// https://en.wikipedia.org/wiki/Yen%27s_algorithm
+function findPathsYen(start, target, K=5) {
+  const a = [findPathDijkstra(start, target)];
+  if (!a[0].length)
+    return [];
+  const b = [];
+  let deletedNodes = {};
+  const del = node => {
+    if (!deletedNodes.hasOwnProperty(node))
+      deletedNodes[node] = connected[node];
+    connected[node] = {};
+  }
+
+  for (let k=1; k < K; k++) {
+    lastA = a[a.length-1];
+    for (let i=0; i < lastA.length-2; i++) {
+      const spurNode = lastA[i];
+      const rootPath = lastA.slice(0, i+1);
+
+      for (const path of a) {
+        if (rootPath.join() == path.slice(0, i+1).join()) {
+          del([path[i+1]])
+        }
+      }
+      for (const node of rootPath.slice(0, -1)) {
+        del(node);
+      }
+      const spurPath = findPathDijkstra(spurNode, target);
+      if (spurPath.length){
+        const totalPath = rootPath.concat(spurPath.splice(1));
+        const totalPathStr = totalPath.join();
+        let found = false;
+        for (const i of b) {
+          if (totalPathStr == i[1]) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          b.push([totalPath, totalPathStr]);
+        }
+      }
+
+      for (const [node, val] of Object.entries(deletedNodes)) {
+        connected[node] = val;
+      }
+      deletedNodes = {};
+    }
+    if (!b.length)
+      break;
+    // TODO: a sorted data structure would be a lot better
+    let minCost = Infinity;
+    let minPathIdx = null;
+    for (let i=0; i<b.length; i++) {
+      const p = b[i][0];
+      let cost = 0
+      let current = p[0];
+      for (const next of p.slice(1)) {
+        cost += connected[current][next].cost;
+        current = next;
+      }
+      if (cost < minCost) {
+        minCost = cost;
+        minPathIdx = i;
+      }
+    }
+    a.push(b.splice(minPathIdx, 1)[0][0]);
+  }
+  return a;
+}
+
+// find the k shortest chains from start to target
+function findPaths(start, target, k=5) {
+  // if that start or target are categories, enable them
+  if (db.categories.hasOwnProperty(start)) {
+    connected[start] = fromCategory[start];
+  }
+  if (db.categories.hasOwnProperty(target)) {
+    // need to add this for the path finder to ever consider the node
+    connected[target] = {}
+    for (const [item, con] of Object.entries(toCategory[target]))
+      connected[item][target] = con;
+  }
+  const results = findPathsYen(start, target, k);
+  // restore the base connection graph
+  if (db.categories.hasOwnProperty(start)) {
+    delete connected[start];
+  }
+  if (db.categories.hasOwnProperty(target)) {
+    delete connected[target];
+    for (const item of Object.keys(toCategory[target]))
+      delete connected[item][target];
+  }
+  return results;
+}
+
+function logChains(chains) {
+  console.debug('found:')
+  for (const chain of chains) {
+    console.debug(chain.map(tag => (db.items[tag] || db.categories[tag]).name));
+  }
+}
+
 function renderMixfield(item, recipe, mixfield, ev_lv=0) {
   // TODO: proper ring information
   const scale = 50;
@@ -153,9 +367,7 @@ function popup(contents) {
   popupModal.show();
 }
 
-function itemPopup(e) {
-  e.preventDefault();
-  const item = db.items[e.target.dataset.linkTag];
+function itemPopup(item) {
   console.debug(item);
   popup(renderItem(item));
 }
@@ -187,7 +399,10 @@ function link(target, popup=true) {
   if (popup && type == 'item') {
     attrs['href'] = '#';
     const elem = tag('a', attrs, [value.name]);
-    elem.addEventListener('click', itemPopup);
+    elem.addEventListener('click', e => {
+      e.preventDefault();
+      itemPopup(db.items[target]);
+    });
     return elem;
   }else {
     return tag('span', attrs, [value.name]);
@@ -293,10 +508,120 @@ function renderItem(item) {
   if (item.seed)
     addRow('From seed', link(item.seed));
 
+  const chainOptions = ["start"];
+  if (item.recipe || item.ev_base) {
+    chainOptions.push('goal')
+  }
+  const buttons = chainOptions.map(i => {
+    const button = tag('button', {'class': 'btn btn-primary m-1'}, ['Set as ' + i]);
+    button.addEventListener('click', () => setChain(i, item));
+    return button;
+  });
+  addRow('Chain', tag('div', {}, buttons))
+
   return tag('div', {'class': 'card', 'data-tag': item['tag']}, [
     heading,
     tag('dl', {'class': 'card-body row'}, elems),
   ]);
+}
+
+var chainStart, chainGoal;
+function setChain(startOrGoal, thing) {
+  if (startOrGoal == 'start')
+    chainStart = thing;
+  else
+    chainGoal = thing;
+  updateChainSettings();
+}
+
+function updateChainSettings() {
+  const container = document.getElementById('chain-container')
+  if (chainStart || chainGoal) {
+    container.style.display = 'block';
+  } else {
+    container.style.display = 'none';
+  }
+  const startDiv = document.getElementById('chain-start');
+  const goalDiv = document.getElementById('chain-goal');
+  for (const [e, value, type] of [[startDiv, chainStart, 'start'], [goalDiv, chainGoal, 'goal']]) {
+    if (value) {
+      const itemButton = tag('button', {'class': 'btn btn-primary'}, [value.name]);
+      const removeButton = tag('button', {'class': 'btn btn-danger', 'title': 'Remove'}, ['🗑️']);
+      itemButton.addEventListener('click', () => itemPopup(value));
+      removeButton.addEventListener('click', () => {
+        setChain(type, null);
+      });
+      const content = tag('div', {'class': 'btn-group'}, [
+        itemButton,
+        removeButton,
+      ]);
+      e.innerHTML = '';
+      e.appendChild(content);
+    } else {
+      e.innerText = '(none)';
+    }
+  }
+  const goButton = document.getElementById('find-chains-button');
+  if (chainStart && chainGoal)
+    goButton.disabled = false;
+  else
+    goButton.disabled = true;
+}
+
+function renderConnection(a, b) {
+  const arrow = '➡';
+  if (db.categories.hasOwnProperty(a.tag)) {
+    // must be start of chain, it has to be CAT_INGREDIENT
+    return [arrow];
+  } else if (db.categories.hasOwnProperty(b.tag)) {
+    // end of chain, might be of BASE_CATEGORY, EFFECT_CATEGORY, ESSENCE_CATEGORY
+    // FIXME
+    return [arrow];
+  }
+  console.debug(a.tag, b.tag)
+  const con = connected[a.tag][b.tag];
+  switch (con.name) {
+    case 'MORPH':
+      return [' (recipe morph) ', arrow];
+    case 'INGREDIENT':
+      return [arrow];
+    case 'CAT_INGREDIENT':
+      const cat = db.categories[con.category];
+      return [cat.name, arrow];
+    case 'EV_LINK':
+      return [' (EV-link) ', arrow];
+    default:
+      console.warn(`unhandled connection type ${con.type}!`);
+  }
+  return [arrow];
+}
+
+function findChains() {
+  if (!chainStart || !chainGoal) {
+    alert('A chain endpoint is missing!')
+    return;
+  }
+  const resultsList = document.getElementById('chain-results');
+  resultsList.innerHTML = '';
+  const chains = findPaths(chainStart.tag, chainGoal.tag);
+  console.debug(chains);
+  if (!chains.length) {
+    resultsList.appendChild(tag('li', {'class': 'list-group-item text-danger'}, ['No chains found!']));
+  }
+  for (const chain of chains) {
+    console.debug(chain.join(' > '));
+    const items = [];
+    let prev = null;
+    for (const thingTag of chain) {
+      const thing = db.items[thingTag] || db.categories[thingTag];
+      if (prev) {
+        items.push(...renderConnection(prev, thing));
+      }
+      items.push(tag('button', {'class': 'btn btn-secondary m-2'}, [thing.name]));
+      prev = thing;
+    }
+    resultsList.appendChild(tag('li', {'class': 'list-group-item p-2 d-flex flex-wrap align-items-center justify-contents-center'}, items));
+  }
 }
 
 function update() {
@@ -386,6 +711,12 @@ function gameChanged() {
     db = await response.json();
     buildIndex();
     update();
+    buildChainCache();
+    // logChains(findPaths('ITEM_CATEGORY_MUSHROOM', 'ITEM_CATEGORY_NEUTRALIZE'));
+    chainStart = db.items.ITEM_MAT_UNI_001
+    chainGoal = db.items.ITEM_MIX_MATERIAL_MYSTIC_004
+    updateChainSettings();
+    findChains();
   });
 }
 
@@ -397,4 +728,13 @@ document.addEventListener('DOMContentLoaded', () => {
   for (const input of document.querySelectorAll('#search-bar input')) {
     input.addEventListener('input', update);
   }
+  document.getElementById('find-chains-button').addEventListener('click', findChains);
+  document.getElementById('chain-swap-button').addEventListener('click', () => {
+    [chainGoal, chainStart] = [chainStart, chainGoal];
+    updateChainSettings();
+  });
+  document.getElementById('clear-chains-button').addEventListener('click', () => {
+    document.getElementById('chain-results').innerHTML = '';
+    updateChainSettings();
+  });
 });
