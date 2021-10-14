@@ -712,11 +712,6 @@ function gameChanged() {
     buildIndex();
     update();
     buildChainCache();
-    // logChains(findPaths('ITEM_CATEGORY_MUSHROOM', 'ITEM_CATEGORY_NEUTRALIZE'));
-    chainStart = db.items.ITEM_MAT_UNI_001
-    chainGoal = db.items.ITEM_MIX_MATERIAL_MYSTIC_004
-    updateChainSettings();
-    findChains();
   });
 }
 
