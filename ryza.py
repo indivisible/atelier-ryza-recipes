@@ -681,7 +681,7 @@ class Database:
                      name_id: int) -> TaggedType:
         results = [item for item in items.values() if item.name_id == name_id]
         if len(results) != 1:
-            raise ValueError('expected 1 item, got {}'.format(len(results)))
+            raise ValueError('expected 1 item, got {len(results)}')
         return results[0]
 
     def open_xml(self, path: Path) -> ET.Element:
@@ -954,7 +954,7 @@ def describe_chain(chain: list[Item]):
         if not prev:
             desc = name
         else:
-            desc += ' ({}) -> {}'.format(explain_connection(prev, item), name)
+            desc += f' ({explain_connection(prev, item)}) -> {name}'
         prev = item
     return desc
 
