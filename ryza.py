@@ -13,6 +13,10 @@ import csv
 
 # tag lists were pulled from `strings <game exe>`
 
+# TODO: add forge data: weaponforge/*.xml
+# TODO: add EV-effects
+# TODO: maybe parse item potentials data?
+
 
 # these affect XML parsing, thunder and air is correct here
 class Element(Enum):
@@ -74,6 +78,10 @@ Ingredient = Union['Item', 'Category']
 
 
 class Category(TaggedObject):
+    pass
+
+
+class Potential(TaggedObject):
     pass
 
 
@@ -366,6 +374,9 @@ class Item(TaggedObject):
     parents: list[Item]
 
     recipe: Optional[Recipe]
+    # structure: [effect_1, effect_2, effect_3, effect_4]
+    # where effect_n: {effect_level: EffectSpec}
+    # -1 is default effect_level, active without reaching anything in recipe
     effects: list[dict[int, EffectSpec]]
     ingredients: list[Ingredient]
     essential_ingredients: list[Ingredient]
@@ -375,11 +386,13 @@ class Item(TaggedObject):
     gathering: Optional[str] = None
     shop_data: Optional[str] = None
     seed: Optional[Item] = None
+    fixed_potentials: list[Potential]
 
     def parse_itemdata(self, node: ET.Element):
         self.recipe = None
         self.children = []
         self.parents = []
+        self.fixed_potentials = []
 
         self.categories = []
         self.possible_categories = []
@@ -500,6 +513,7 @@ class Database:
     items: dict[str, Item]
     categories: dict[str, Category]
     effects: dict[str, Effect]
+    potentials: dict[str, Potential]
     elements: dict[Element, str]
 
     data_dir: Path
@@ -512,6 +526,7 @@ class Database:
         self.categories = {}
         self.effects = {}
         self.elements = {}
+        self.potentials = {}
 
         self.strings = self.load_strings()
         # first load basic data: tags and names
@@ -520,6 +535,7 @@ class Database:
             ('items', Item, 'name', 6750209),
             ('categories', Category, 'category', 6815745),
             ('effects', Effect, 'effect', 6881281),
+            ('potentials', Potential, 'potential', 6946817),
         ]
         for attr, factory, key, offset in init_data:
             tags_path = f'item_{key}_tags.txt'
@@ -532,6 +548,26 @@ class Database:
         self.parse_mixfield()
         self.parse_descriptions()
         self.parse_gathering()
+        # TODO: parse potential effects from item/item_potential.xml?
+        self.parse_item_status()
+
+    def parse_item_status(self):
+        xml_path = self.data_dir / 'saves/item/item_status.xml'
+        root = self.open_xml(xml_path)
+
+        print(self.potentials)
+        nodes = root.iter('item_status')
+        for node, item in zip(nodes, self.items.values()):
+            for i in range(10):
+                pot = node.get(f'pot_{i}')
+                eff = node.get(f'eff_{i}')
+                if pot:
+                    potential = self.potentials[pot]
+                    item.fixed_potentials.append(potential)
+                if eff:
+                    effect = self.effects[eff]
+                    assert len(item.effects) <= i
+                    item.effects.append({-1: EffectSpec(effect, False)})
 
     def load_strings(self) -> dict[int, str]:
         str_path = f'saves/text_{self.lang}/strcombineall.xml'
