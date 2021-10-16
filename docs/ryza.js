@@ -514,14 +514,14 @@ function renderItem(item) {
     const last = group[group.length-1];
     return tag('li', {}, [link(last.forged_effect)]);
   });
-  if (forged)
+  if (forged.length)
     addRow('Forging', tag('ul', {'class': 'inline-list effects'}, forged))
 
   const ev_effects = Object.values(item.ev_effects).map(effs => {
     const eff = effs[effs.length-1];
     return tag('li', {}, [link(eff)]);
   });
-  if (ev_effects)
+  if (ev_effects.length)
     addRow('EV effects', tag('ul', {'class': 'inline-list'}, ev_effects));
 
   const chainOptions = ["start"];
