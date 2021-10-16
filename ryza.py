@@ -13,7 +13,6 @@ import csv
 
 # tag lists were pulled from `strings <game exe>`
 
-# TODO: add EV-effects
 # TODO: maybe parse item potentials data?
 
 
@@ -82,6 +81,10 @@ class Category(TaggedObject):
 
 class Potential(TaggedObject):
     pass
+
+
+class EVEffect(TaggedObject):
+    effects: list[Effect]
 
 
 @dataclass
@@ -393,6 +396,8 @@ class Item(TaggedObject):
     seed: Optional[Item] = None
     fixed_potentials: list[Potential]
     forge_effects: list[list[ForgeEffect]]
+    # keys are UseEnemy, UseParty, Accessory
+    ev_effects: dict[str, list[EVEffect]]
 
     def parse_itemdata(self, node: ET.Element):
         self.recipe = None
@@ -400,6 +405,8 @@ class Item(TaggedObject):
         self.parents = []
         self.fixed_potentials = []
         self.forge_effects = []
+        self.ev_effects = {}
+        self.__effect_cache = []
 
         self.categories = []
         self.possible_categories = []
@@ -424,17 +431,25 @@ class Item(TaggedObject):
     def parse_recipedata(self, nodes):
         self.recipe = Recipe(self.db, self, nodes)
 
+    def apply_ev_effects(self, ev_effects: dict[str, dict[str,
+                                                          EVEffect]]) -> None:
+        tags = list(sorted(i.tag for i in self.__effect_cache))
+        for tag in tags:
+            spec = ev_effects.get(tag)
+            if not spec:
+                continue
+            for key, effect in spec.items():
+                if key not in self.ev_effects:
+                    self.ev_effects[key] = []
+                self.ev_effects[key].append(effect)
+
     def apply_forge_effects(self, forge_effects: list[list[ForgeEffect]]):
-        effects_cache = []
-        for group in self.effects:
-            for spec in group.values():
-                effects_cache.append(spec.effect)
         for group in forge_effects:
             new_group = []
             for forge_effect in group:
                 accepted_effects = []
                 for src in forge_effect.source_effects:
-                    if src in effects_cache:
+                    if src in self.__effect_cache:
                         accepted_effects.append(src)
                 if accepted_effects:
                     new_group.append(
@@ -444,10 +459,12 @@ class Item(TaggedObject):
                 self.forge_effects.append(new_group)
 
     def apply_effects(self, enable_essence=True):
+        self.__effect_cache = []
         for group in self.effects:
             for spec in group.values():
                 if not enable_essence and spec.is_essence:
                     continue
+                self.__effect_cache.append(spec.effect)
                 # ignore unobatainable effects
                 eff = spec.effect
                 source_type = 'normal' if not spec.is_essence else 'essence'
@@ -541,6 +558,7 @@ class Database:
     effects: dict[str, Effect]
     potentials: dict[str, Potential]
     elements: dict[Element, str]
+    ev_effects: dict[str, EVEffect]
 
     data_dir: Path
 
@@ -562,6 +580,8 @@ class Database:
             ('categories', Category, 'category', 6815745),
             ('effects', Effect, 'effect', 6881281),
             ('potentials', Potential, 'potential', 6946817),
+            ('potentials', Potential, 'potential', 6946817),
+            ('ev_effects', EVEffect, 'ev_eff', 7208961),
         ]
         for attr, factory, key, offset in init_data:
             tags_path = f'item_{key}_tags.txt'
@@ -577,6 +597,46 @@ class Database:
         # TODO: parse potential effects from item/item_potential.xml?
         self.parse_item_status()
         self.parse_forge_effects()
+        self.parse_ev_effects()
+        self.parse_appear_ev_effect()
+
+    def parse_appear_ev_effect(self):
+        xml_path = self.data_dir / 'saves/item/item_appear_ev_effect.xml'
+        if not xml_path.exists():
+            return
+        root = self.open_xml(xml_path)
+
+        specs = {}
+        for node in root:
+            src_tag = node.attrib['srcEff']
+            effs = {}
+            for typ in ('UseEnemy', 'UseParty', 'Accessory'):
+                effs[typ] = self.ev_effects[node.attrib[f'evEff{typ}']]
+            specs[src_tag] = effs
+        for item in self.items.values():
+            item.apply_ev_effects(specs)
+
+    def parse_ev_effects(self):
+        xml_path = self.data_dir / 'saves/item/item_ev_effect_no.xml'
+        if not xml_path.exists():
+            return
+        root = self.open_xml(xml_path)
+
+        for ev_eff in self.ev_effects.values():
+            # ITEM_EV_EFF_DUMMY_166 & ITEM_EV_EFF_DUMMY_167 are split badly
+            ev_eff.effects = []
+
+        for node in root:
+            name_id = int(node.attrib['nameID'])
+            try:
+                ev_eff = self.with_name_id(self.ev_effects, name_id)
+            except ValueError:
+                continue
+            for i in range(10):
+                eff_tag = node.get(f'effTag_{i}')
+                if not eff_tag:
+                    break
+                ev_eff.effects.append(self.effects[eff_tag])
 
     def parse_forge_effects(self):
         for eq_type in ('accessory', 'weapon', 'armor'):
@@ -641,7 +701,7 @@ class Database:
 
     def dump(self):
         dump = {}
-        for field in ['items', 'effects', 'categories']:
+        for field in ['items', 'effects', 'categories', 'ev_effects']:
             dump[field] = {
                 k: json_dump_helper(v, True)
                 for k, v in getattr(self, field).items()

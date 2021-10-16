@@ -379,6 +379,7 @@ function link(target, popup=true) {
     'item': db.items,
     'category': db.categories,
     'effect': db.effects,
+    'ev_effect': db.ev_effects,
   };
   let type = 'unknown';
   let value = null;
@@ -396,6 +397,8 @@ function link(target, popup=true) {
   };
   if (value.description)
     attrs['title'] = value.description;
+  if (type == 'ev_effect')
+    attrs['title'] = value.effects.map(i => db.effects[i].name).join(', ');
   if (popup && type == 'item') {
     attrs['href'] = '#';
     const elem = tag('a', attrs, [value.name]);
@@ -513,6 +516,13 @@ function renderItem(item) {
   });
   if (forged)
     addRow('Forging', tag('ul', {'class': 'inline-list effects'}, forged))
+
+  const ev_effects = Object.values(item.ev_effects).map(effs => {
+    const eff = effs[effs.length-1];
+    return tag('li', {}, [link(eff)]);
+  });
+  if (ev_effects)
+    addRow('EV effects', tag('ul', {'class': 'inline-list'}, ev_effects));
 
   const chainOptions = ["start"];
   if (item.recipe || item.ev_base) {
@@ -717,6 +727,17 @@ function buildIndex() {
         for (const forgeEffect of group) {
           strings.push(forgeEffect.forged_effect);
           strings.push(db.effects[forgeEffect.forged_effect].name.toUpperCase());
+        }
+      }
+      for (const group of Object.values(item.ev_effects)) {
+        for (const ev_tag of group) {
+          strings.push(ev_tag);
+          const ev_effect = db.ev_effects[ev_tag];
+          strings.push(ev_effect.name.toUpperCase());
+          for (const eff_tag of ev_effect.effects) {
+            strings.push(eff_tag);
+            strings.push(db.effects[eff_tag].name.toUpperCase());
+          }
         }
       }
       record.push(strings);
