@@ -555,7 +555,6 @@ class Database:
         xml_path = self.data_dir / 'saves/item/item_status.xml'
         root = self.open_xml(xml_path)
 
-        print(self.potentials)
         nodes = root.iter('item_status')
         for node, item in zip(nodes, self.items.values()):
             for i in range(10):
