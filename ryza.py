@@ -778,7 +778,7 @@ class Database:
                      name_id: int) -> TaggedType:
         results = [item for item in items.values() if item.name_id == name_id]
         if len(results) != 1:
-            raise ValueError('expected 1 item, got {len(results)}')
+            raise ValueError(f'expected 1 item, got {len(results)}')
         return results[0]
 
     def open_xml(self, path: Path) -> ET.Element:
