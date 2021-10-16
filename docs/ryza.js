@@ -523,8 +523,8 @@ function renderItem(item) {
       const ev_eff = db.ev_effects[eff];
       if (ev_eff.effects.length)
         return tag('li', {}, [link(eff)]);
-      else
-        console.debug('no effects for ev effect:', ev_eff);
+      //else
+      //  console.debug('no effects for ev effect:', ev_eff);
     }
   });
   if (ev_effects.length)
