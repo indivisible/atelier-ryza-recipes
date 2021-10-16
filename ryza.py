@@ -623,7 +623,9 @@ class Database:
         root = self.open_xml(xml_path)
 
         for ev_eff in self.ev_effects.values():
+            # FIXME:
             # ITEM_EV_EFF_DUMMY_166 & ITEM_EV_EFF_DUMMY_167 are split badly
+            # this results in freeze protection not having any effects
             ev_eff.effects = []
 
         for node in root:

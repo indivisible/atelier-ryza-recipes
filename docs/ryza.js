@@ -518,8 +518,14 @@ function renderItem(item) {
     addRow('Forging', tag('ul', {'class': 'inline-list effects'}, forged))
 
   const ev_effects = Object.values(item.ev_effects).map(effs => {
-    const eff = effs[effs.length-1];
-    return tag('li', {}, [link(eff)]);
+    for (let idx = effs.length - 1; idx >= 0; idx--) {
+      const eff = effs[idx];
+      const ev_eff = db.ev_effects[eff];
+      if (ev_eff.effects.length)
+        return tag('li', {}, [link(eff)]);
+      else
+        console.debug('no effects for ev effect:', ev_eff);
+    }
   });
   if (ev_effects.length)
     addRow('EV effects', tag('ul', {'class': 'inline-list'}, ev_effects));
