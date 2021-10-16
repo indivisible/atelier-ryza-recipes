@@ -507,6 +507,12 @@ function renderItem(item) {
     addRow('Shop', item.shop_data);
   if (item.seed)
     addRow('From seed', link(item.seed));
+  const forged = item.forge_effects.map(group => {
+    const last = group[group.length-1];
+    return tag('li', {}, [link(last.forged_effect)]);
+  });
+  if (forged)
+    addRow('Forging', tag('ul', {'class': 'inline-list effects'}, forged))
 
   const chainOptions = ["start"];
   if (item.recipe || item.ev_base) {
@@ -641,10 +647,10 @@ function update() {
       neededElements.push(cb.value);
     }
   }
-  outer_loop: for (const [item, haystacks] of itemIndex) {
+  outer_loop: for (const [item, itemHaystacks, effectHaystacks] of itemIndex) {
     if (nameQuery) {
       let found = false;
-      for (const haystack of haystacks) {
+      for (const haystack of itemHaystacks) {
         if (haystack.includes(nameQuery)) {
           found = true;
           break;
@@ -655,17 +661,10 @@ function update() {
     }
     if (effectQuery) {
       let found = false;
-      group_loop: for (const group of Object.values(item['effects'])) {
-        for (const effSpec of Object.values(group)) {
-          if (effSpec.effect.includes(effectQuery)) {
-            found = true;
-            break group_loop;
-          }
-          const effName = db['effects'][effSpec.effect]['name'].toUpperCase();
-          if (effName.includes(effectQuery)) {
-            found = true;
-            break group_loop;
-          }
+      for (const haystack of effectHaystacks) {
+        if (haystack.includes(effectQuery)) {
+          found = true;
+          break;
         }
       }
       if (!found)
@@ -691,16 +690,55 @@ function update() {
 
 function buildIndex() {
   itemIndex = [];
-  for (const item of Object.values(db['items'])) {
-    const strings = [];
-    strings.push(item['name'].toUpperCase());
-    strings.push(item['tag']);
-    const cats = item['categories'].concat(item['possible_categories'])
-    for (const catTag of cats) {
-      strings.push(catTag);
-      strings.push(db['categories'][catTag]['name'].toUpperCase());
+  for (const item of Object.values(db.items)) {
+    const record = [item];
+    // item + group index
+    {
+      const strings = [];
+      strings.push(item['name'].toUpperCase());
+      strings.push(item['tag']);
+      const cats = item['categories'].concat(item['possible_categories'])
+      for (const catTag of cats) {
+        strings.push(catTag);
+        strings.push(db['categories'][catTag]['name'].toUpperCase());
+      }
+      record.push(strings);
     }
-    itemIndex.push([item, strings]);
+    // effect index
+    {
+      const strings = [];
+      for (const group of Object.values(item['effects'])) {
+        for (const effSpec of Object.values(group)) {
+          strings.push(effSpec.effect);
+          strings.push(db.effects[effSpec.effect].name.toUpperCase());
+        }
+      }
+      for (const group of item.forge_effects) {
+        for (const forgeEffect of group) {
+          strings.push(forgeEffect.forged_effect);
+          strings.push(db.effects[forgeEffect.forged_effect].name.toUpperCase());
+        }
+      }
+      record.push(strings);
+    }
+    itemIndex.push(record);
+  }
+  effectIndex = [];
+  for (const item of Object.values(db.items)) {
+    const strings = [];
+    for (const group of Object.values(item['effects'])) {
+      for (const effSpec of Object.values(group)) {
+        strings.push(effSpec.effect);
+        strings.push(db.effects[effSpec.effect].name);
+      }
+    }
+    for (const group of item.forge_effects) {
+      for (const forgeEffect of group) {
+        strings.push(forgeEffect.forged_effect);
+        strings.push(db.effects[forgeEffect.forged_effect].name);
+      }
+    }
+    effectIndex.push(strings);
   }
 }
 
