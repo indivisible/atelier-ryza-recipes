@@ -13,7 +13,6 @@ import csv
 
 # tag lists were pulled from `strings <game exe>`
 
-# TODO: add forge data: weaponforge/*.xml
 # TODO: add EV-effects
 # TODO: maybe parse item potentials data?
 
@@ -359,6 +358,12 @@ class Recipe:
         self.mixfield = Mixfield(self, fd)
 
 
+@dataclass
+class ForgeEffect:
+    forged_effect: Effect
+    source_effects: list[Effect]
+
+
 class Item(TaggedObject):
     level: int = 0
     price: int = 0
@@ -387,12 +392,14 @@ class Item(TaggedObject):
     shop_data: Optional[str] = None
     seed: Optional[Item] = None
     fixed_potentials: list[Potential]
+    forge_effects: list[list[ForgeEffect]]
 
     def parse_itemdata(self, node: ET.Element):
         self.recipe = None
         self.children = []
         self.parents = []
         self.fixed_potentials = []
+        self.forge_effects = []
 
         self.categories = []
         self.possible_categories = []
@@ -416,6 +423,25 @@ class Item(TaggedObject):
 
     def parse_recipedata(self, nodes):
         self.recipe = Recipe(self.db, self, nodes)
+
+    def apply_forge_effects(self, forge_effects: list[list[ForgeEffect]]):
+        effects_cache = []
+        for group in self.effects:
+            for spec in group.values():
+                effects_cache.append(spec.effect)
+        for group in forge_effects:
+            new_group = []
+            for forge_effect in group:
+                accepted_effects = []
+                for src in forge_effect.source_effects:
+                    if src in effects_cache:
+                        accepted_effects.append(src)
+                if accepted_effects:
+                    new_group.append(
+                        ForgeEffect(forge_effect.forged_effect,
+                                    accepted_effects))
+            if new_group:
+                self.forge_effects.append(new_group)
 
     def apply_effects(self, enable_essence=True):
         for group in self.effects:
@@ -550,6 +576,42 @@ class Database:
         self.parse_gathering()
         # TODO: parse potential effects from item/item_potential.xml?
         self.parse_item_status()
+        self.parse_forge_effects()
+
+    def parse_forge_effects(self):
+        for eq_type in ('accessory', 'weapon', 'armor'):
+            path_part = f'saves/weaponforge/{eq_type}forgeeffecttable.xml'
+            xml_path = self.data_dir / path_part
+            # ryza 1 only has weapon forge
+            if not xml_path.exists():
+                continue
+            root = self.open_xml(xml_path)
+
+            effect_groups = []
+            current = {}
+
+            def maybe_emit(num):
+                nonlocal current
+                if not current or num != current['num']:
+                    if current:
+                        effect_groups.append(current['forge_effects'])
+                    current = {'num': num, 'forge_effects': []}
+
+            for node in root:
+                dst = self.effects[node.attrib['dst']]
+                num = int(node.attrib['No'])
+                maybe_emit(num)
+                srcs = []
+                for i in range(10):
+                    src = node.get(f'src{i}')
+                    if not src:
+                        break
+                    srcs.append(self.effects[src])
+                current['forge_effects'].append(ForgeEffect(dst, srcs))
+            maybe_emit(-1)
+
+            for item in self.items.values():
+                item.apply_forge_effects(effect_groups)
 
     def parse_item_status(self):
         xml_path = self.data_dir / 'saves/item/item_status.xml'
