@@ -155,11 +155,7 @@ function findPathsYen(start, target, K=5) {
     return [];
   const b = [];
   let deletedNodes = {};
-  const del = node => {
-    if (!deletedNodes.hasOwnProperty(node))
-      deletedNodes[node] = connected[node];
-    connected[node] = {};
-  }
+  let deletedEdges = {};
 
   for (let k=1; k < K; k++) {
     lastA = a[a.length-1];
@@ -169,13 +165,27 @@ function findPathsYen(start, target, K=5) {
 
       for (const path of a) {
         if (rootPath.join() == path.slice(0, i+1).join()) {
-          del([path[i+1]])
+          const key = [path[i], path[i+1]];
+          if (!deletedEdges.hasOwnProperty(key))
+            deletedEdges[key] = [key, connected[key[0]][key[1]]];
+          delete connected[key[0]][key[1]];
         }
       }
       for (const node of rootPath.slice(0, -1)) {
-        del(node);
+        if (!deletedNodes.hasOwnProperty(node))
+          deletedNodes[node] = connected[node];
+        connected[node] = {};
       }
+
       const spurPath = findPathDijkstra(spurNode, target);
+
+      for (const [node, val] of Object.entries(deletedNodes))
+        connected[node] = val;
+      for (const [key, val] of Object.values(deletedEdges))
+        connected[key[0]][key[1]] = val;
+      deletedNodes = {};
+      deletedEdges = {};
+
       if (spurPath.length){
         const totalPath = rootPath.concat(spurPath.splice(1));
         const totalPathStr = totalPath.join();
@@ -190,11 +200,6 @@ function findPathsYen(start, target, K=5) {
           b.push([totalPath, totalPathStr]);
         }
       }
-
-      for (const [node, val] of Object.entries(deletedNodes)) {
-        connected[node] = val;
-      }
-      deletedNodes = {};
     }
     if (!b.length)
       break;
@@ -600,7 +605,6 @@ function renderConnection(a, b) {
     // FIXME
     return [arrow];
   }
-  console.debug(a.tag, b.tag)
   const con = connected[a.tag][b.tag];
   switch (con.name) {
     case 'MORPH':
@@ -626,12 +630,10 @@ function findChains() {
   const resultsList = document.getElementById('chain-results');
   resultsList.innerHTML = '';
   const chains = findPaths(chainStart.tag, chainGoal.tag);
-  console.debug(chains);
   if (!chains.length) {
     resultsList.appendChild(tag('li', {'class': 'list-group-item text-danger'}, ['No chains found!']));
   }
   for (const chain of chains) {
-    console.debug(chain.join(' > '));
     const items = [];
     let prev = null;
     for (const thingTag of chain) {
