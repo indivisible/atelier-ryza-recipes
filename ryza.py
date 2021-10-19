@@ -41,21 +41,11 @@ ELEMENT_STR_MAP_GAME = {'ryza1': 4063340, 'ryza2': 4194395}
 
 EFFECT_DESC_OFFSET = 3538945
 
-# TODO: these MIGHT be listed in the string table
-KNOWN_RING_TYPES = {
-    0: 'Effect 1',
-    1: 'Effect 2',
-    2: 'Effect 3',
-    3: 'Effect 4',
-    4: 'Quality',
-    5: 'Trait unlocks',
-    6: 'Recipe morph',
-    7: 'Item Level -',
-    8: 'CC -',
-    11: 'ATK +',
-    12: 'DEF +',
-    13: 'SPD +',
-}
+RING_TYPE_OFFSETS = {
+        # label and help starting offsets
+        'ryza1': (10092545, 10092565),
+        'ryza2': (10092545, 10092585),
+        }
 
 
 @dataclass
@@ -140,7 +130,6 @@ class MixfieldRingValue:
 
 class MixfieldRing:
     type: int = -1
-    type_str: Optional[str] = None
     is_essential: bool = False
     ev_lv: int = 0
     element: Element
@@ -156,7 +145,6 @@ class MixfieldRing:
     def __init__(self, recipe: Recipe, ring: ET.Element):
         self.effects = {}
         self.type = int(ring.attrib['type'])
-        self.type_str = KNOWN_RING_TYPES.get(self.type)
         self.ev_lv = int(ring.get('EvLv', '0'))
         self.x = int(ring.get('x', '0'))
         self.y = int(ring.get('y', '0'))
@@ -559,6 +547,7 @@ class Database:
     potentials: dict[str, Potential]
     elements: dict[Element, str]
     ev_effects: dict[str, EVEffect]
+    ring_types: dict[int, tuple[str, str]]
 
     data_dir: Path
 
@@ -571,6 +560,7 @@ class Database:
         self.effects = {}
         self.elements = {}
         self.potentials = {}
+        self.ring_types = {}
 
         self.strings = self.load_strings()
         # first load basic data: tags and names
@@ -599,6 +589,16 @@ class Database:
         self.parse_forge_effects()
         self.parse_ev_effects()
         self.parse_appear_ev_effect()
+        self.parse_ring_types()
+
+    def parse_ring_types(self):
+        name_offset, desc_offset = RING_TYPE_OFFSETS[self.game]
+        for i in range(desc_offset - name_offset):
+            name = self.strings.get(name_offset + i)
+            if not name:
+                continue
+            desc = self.strings[desc_offset + i]
+            self.ring_types[i] = (name, desc)
 
     def parse_appear_ev_effect(self):
         xml_path = self.data_dir / 'saves/item/item_appear_ev_effect.xml'
@@ -712,6 +712,7 @@ class Database:
                 for k, v in getattr(self, field).items()
             }
         dump['elements'] = {k.value: v for k, v in self.elements.items()}
+        dump['ring_types'] = self.ring_types
         return dump
 
     def find_items(self, query: str) -> Generator[Item, None, None]:
