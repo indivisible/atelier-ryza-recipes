@@ -373,8 +373,15 @@ function popup(contents) {
 }
 
 function itemPopup(item) {
-  console.debug(item);
   popup(renderItem(item));
+}
+
+function popupThing(tag) {
+  if (db.items[tag]) {
+    itemPopup(db.items[tag]);
+  } else {
+    console.warning(`unknown popup thing: ${tag}`);
+  }
 }
 
 function link(target, popup=true) {
@@ -641,7 +648,9 @@ function findChains() {
       if (prev) {
         items.push(...renderConnection(prev, thing));
       }
-      items.push(tag('button', {'class': 'btn btn-secondary m-2'}, [thing.name]));
+      const button = tag('button', {'class': 'btn btn-secondary m-2'}, [thing.name]);
+      items.push(button);
+      button.addEventListener('click', () => popupThing(thingTag))
       prev = thing;
     }
     resultsList.appendChild(tag('li', {'class': 'list-group-item p-2 d-flex flex-wrap align-items-center justify-contents-center'}, items));
