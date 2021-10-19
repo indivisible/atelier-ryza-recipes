@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from collections import defaultdict
-from typing import NamedTuple
+from typing import Generator, NamedTuple
 import heapq
 
 from .ryza_parser import Database, Category
@@ -22,6 +22,9 @@ class Connection:
     INGREDIENT = ConnectionType(4, 1, '(named ingredient)')
     CAT_INGREDIENT = ConnectionType(5, 1, '(ingredient)')
     EV_LINK = ConnectionType(6, 1, '(EV-link)')
+
+
+Path = tuple[str, ...]
 
 
 class ChainFinder:
@@ -73,8 +76,8 @@ class ChainFinder:
                         description=cat.name)
                     add_con(cons, a, b, con)
 
-    def find_path_dijkstra(self, start: str,
-                           target: str) -> tuple[float, tuple[str, ...]]:
+    def _find_path_dijkstra(self, start: str,
+                            target: str) -> tuple[float, Path]:
         dists: dict[str, float] = defaultdict(lambda: float('inf'))
         dists[start] = 0
         queue = [(0, start, tuple())]
@@ -99,30 +102,33 @@ class ChainFinder:
                     heapq.heappush(queue, (new, b, path))
         return (float('inf'), tuple())
 
-    def _find_paths_yen(self, start: str, target: str, limit: int = 10):
-        best_paths = [self.find_path_dijkstra(start, target)[1]]
+    def _find_paths_yen(self,
+                        start: str,
+                        target: str,
+                        limit: int = 10) -> Generator[Path, None, None]:
+        best_paths: list[Path] = [self._find_path_dijkstra(start, target)[1]]
         if not best_paths[0]:
             return None
         # FIXME: while generators are cool, we have some very delicate
         # shared state stored in `self`, so it's pretty unsafe
         yield best_paths[0]
-        candidates = []
-        candidates_set = set()
+        candidates: list[tuple[float, Path]] = []
+        candidates_set: set[Path] = set()
 
-        deleted_connections = {}
-        deleted_nodes = {}
+        deleted_connections: dict[tuple[str, str], ConnectionType] = {}
+        deleted_nodes: dict[str, dict[str, ConnectionType]] = {}
 
         for _ in range(1, limit):
             # len(...)-1: we don't want to delete the target node
-            for i in range(len(best_paths[-1])-1):
+            for i in range(len(best_paths[-1]) - 1):
                 spur = best_paths[-1][i]
-                root_path = best_paths[-1][:i+1]
+                root_path = best_paths[-1][:i + 1]
 
                 for path in best_paths:
-                    if root_path == path[:i+1]:
+                    if root_path == path[:i + 1]:
                         # do not go down a path we already visited
                         a = path[i]
-                        b = path[i+1]
+                        b = path[i + 1]
                         key = (a, b)
                         if key not in deleted_connections:
                             deleted_connections[key] = self.connections[a][b]
@@ -133,7 +139,7 @@ class ChainFinder:
                         deleted_nodes[node] = self.connections[node]
                     self.connections[node] = {}
 
-                _, spur_path = self.find_path_dijkstra(spur, target)
+                _, spur_path = self._find_path_dijkstra(spur, target)
 
                 # undelete the disabled nodes
                 for node, cons in deleted_nodes.items():
@@ -160,7 +166,7 @@ class ChainFinder:
             best_paths.append(path)
             yield path
 
-    def print_paths(self, start: str, target: str, limit: int = 10):
+    def print_paths(self, start: str, target: str, limit: int = 10) -> None:
         if start in self.from_category:
             self.connections[start] = self.from_category[start]
 
