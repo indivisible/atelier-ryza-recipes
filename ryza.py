@@ -676,6 +676,9 @@ class Database:
                 item.apply_forge_effects(effect_groups)
 
     def parse_item_status(self):
+        if not self.potentials:
+            print('WARNING: potentials were not parsed!')
+            return
         xml_path = self.data_dir / 'saves/item/item_status.xml'
         root = self.open_xml(xml_path)
 
