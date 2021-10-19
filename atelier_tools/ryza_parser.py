@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Generator, Iterable, Optional, TypeVar, Union
+from typing import Generator, Iterable, Optional, TextIO, TypeVar, Union
 import xml.etree.ElementTree as ET
 from enum import Enum
 from dataclasses import dataclass
@@ -704,7 +704,9 @@ class Database:
             stringmap[int(node.attrib['String_No'])] = text
         return stringmap
 
-    def dump(self):
+    def dump(self, fp: TextIO):
+        import json
+
         dump = {}
         for field in ['items', 'effects', 'categories', 'ev_effects']:
             dump[field] = {
@@ -713,7 +715,7 @@ class Database:
             }
         dump['elements'] = {k.value: v for k, v in self.elements.items()}
         dump['ring_types'] = self.ring_types
-        return dump
+        json.dump(dump, fp, default=json_dump_helper)
 
     def find_items(self, query: str) -> Generator[Item, None, None]:
         query = query.upper()
@@ -927,38 +929,6 @@ def xml_to_str(node: ET.Element):
     return ET.tostring(node, encoding='unicode').strip()
 
 
-def is_ingredient_of(ingredient: Item, target: Item):
-    if ingredient in target.ingredients:
-        return True
-    cats = ingredient.categories + ingredient.possible_categories
-    for cat in cats:
-        if cat in target.ingredients:
-            return True
-    return False
-
-
-def is_directly_reachable(item_a: Item, item_b: Item):
-    if item_b in item_a.children:
-        return True
-    return is_ingredient_of(item_a, item_b)
-
-
-def explain_connection(item_a: Item, item_b: Item):
-    connections = []
-    if item_b in item_a.children:
-        connections.append('derivative')
-    if item_a in item_b.ingredients:
-        connections.append('named ingredient')
-    category_descriptions = [(item_a.categories, ''),
-                             (item_a.possible_categories, '*')]
-    for cats, suffix in category_descriptions:
-        for cat in cats:
-            if cat in item_b.ingredients:
-                cat_name = cat.name.strip('()')
-                connections.append(f'{cat_name}{suffix}')
-    return ', '.join(connections)
-
-
 def print_map(item: Item) -> None:
     ev_lv = 0
     orig_item = item
@@ -1048,108 +1018,6 @@ def print_map(item: Item) -> None:
     print()
 
 
-def find_routes_from_category(db: Database,
-                              source: Category,
-                              target_item: Optional[Item] = None,
-                              target_category: Optional[Category] = None,
-                              limit: int = 5):
-    assert target_item or target_category
-    assert not (target_item and target_category)
-
-    if target_item:
-        if source in target_item.ingredients:
-            yield [target_item]
-            return
-
-    for item in db.items.values():
-        if source in item.ingredients:
-            yield from find_routes(db, item, target_item, target_category,
-                                   set(), limit)
-
-
-# FIXME: replace this horrible thing with Yen's algorithm
-def find_routes(db: Database,
-                this_item: Item,
-                target_item: Optional[Item] = None,
-                target_category: Optional[Category] = None,
-                visited: Optional[set[str]] = None,
-                limit: int = 5):
-    assert target_item or target_category
-    assert not (target_item and target_category)
-    # FIXME: maybe reimplement this?
-    # disabled = this_item.get('disabled')
-    # if disabled:
-    #     return None
-    if visited is None:
-        visited = set()
-    visited.add(this_item.tag)
-
-    if target_item:
-        if is_directly_reachable(this_item, target_item):
-            yield [this_item, target_item]
-            return
-    else:
-        assert target_category
-        if target_category in this_item.categories or \
-           target_category in this_item.possible_categories:
-            yield [this_item]
-            return
-
-    limit -= 1
-    if limit <= 0:
-        return None
-
-    for tag, item in db.items.items():
-        if tag in visited:
-            continue
-        if is_directly_reachable(this_item, item):
-            chains = find_routes(db, item, target_item, target_category,
-                                 visited.copy(), limit)
-            for chain in chains:
-                yield [this_item] + chain
-
-
-def describe_chain(chain: list[Item]):
-    prev = None
-    desc = ''
-    for item in chain:
-        name = item.name
-        if not prev:
-            desc = name
-        else:
-            desc += f' ({explain_connection(prev, item)}) -> {name}'
-        prev = item
-    return desc
-
-
-def print_best_chains(chains: Iterable[list[Item]],
-                      limit: int = 3,
-                      prefix: str = ''):
-    scored_chains = [(len(chain), chain) for chain in chains]
-    scored_chains.sort(key=lambda i: i[0])
-    min_score = None
-    for num, (score, chain) in enumerate(scored_chains):
-        if (num + 1) >= limit:
-            if min_score is None:
-                min_score = score
-            if score > min_score:
-                break
-        print(prefix + describe_chain(chain))
-
-
-def format_effects(item, effects):
-    recipe = item.get('recipe')
-    if not recipe:
-        return None
-    names = []
-    for group in recipe['effects'].values():
-        eff = group[-1]
-        name = effects[eff]['name']
-        names.append(name)
-    names.sort()
-    return ', '.join(names)
-
-
 def json_dump_helper(obj, full=False):
     if not full and hasattr(obj, 'tag'):
         return obj.tag
@@ -1173,110 +1041,3 @@ def json_dump_helper(obj, full=False):
                 value = {k.value: v for k, v in value.items()}
             dump[attr] = value
         return dump
-
-
-def main():
-    import argparse
-
-    main_parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    main_parser.add_argument('--game',
-                             type=str,
-                             default='ryza2',
-                             help='game to use (ryza1 or ryza2)')
-    main_parser.add_argument('--lang',
-                             type=str,
-                             default='en',
-                             help='2 letter language code')
-    main_parser.add_argument('-v', '--verbose', action='store_true')
-    subparsers = main_parser.add_subparsers(dest='command')
-
-    item_info_parser = subparsers.add_parser('items', help='item info')
-    item_info_parser.add_argument('item_names', nargs='*', type=str.lower)
-
-    item_chain_parser = subparsers.add_parser('chain', help='find craft chain')
-    item_chain_parser.add_argument('source',
-                                   type=str.lower,
-                                   help='category or item to start chain from')
-    item_chain_parser.add_argument('target',
-                                   type=str.lower,
-                                   help='category or item to chain to')
-
-    recipe_find_parser = subparsers.add_parser('category',
-                                               help='find recipe for category')
-    recipe_find_parser.add_argument('category', type=str.lower)
-
-    subparsers.add_parser('dump-effects', help='dump effect names')
-    subparsers.add_parser('dump-categories', help='dump category names')
-
-    dump_json = subparsers.add_parser('dump-json', help='dump effect names')
-    dump_json.add_argument('dump_file', type=argparse.FileType('w'))
-
-    args = main_parser.parse_args()
-
-    db = Database(args.game, lang=args.lang)
-    # db = Database(Path('ryza1_data'))
-
-    # TODO: re-add this option?
-    # late game powerful items can mess up early game chain searches
-    # disabled = [
-    #     # 'red stone',
-    #     # 'Philosopher\'s Stone',
-    #     # 'Crystal Element',
-    #     # 'Holy Nut',
-    # ]
-
-    if args.command == 'items':
-        if not args.item_names:
-            for item in db.items.values():
-                item.print(args.verbose)
-        else:
-            seen = set()
-            for q in args.item_names:
-                for item in db.find_items(q):
-                    if item.tag in seen:
-                        continue
-                    item.print(args.verbose)
-                    seen.add(item.tag)
-    elif args.command == 'chain':
-        source_item, source_cat = db.find_item_or_category(args.source)
-        if not (source_item or source_cat):
-            print(f'{args.source} not found!')
-            return 1
-        assert not (source_item and source_cat)
-
-        target_item, target_cat = db.find_item_or_category(args.target)
-        if not (target_item or target_cat):
-            print(f'{args.target} not found!')
-            return 1
-        assert not (target_item and target_cat)
-        source = source_item or source_cat
-        assert source
-        target = target_item or target_cat
-        assert target
-        print(f'Finding craft chain from {source.name} to {target.name}...')
-        if source_cat:
-            chains = find_routes_from_category(db, source_cat, target_item,
-                                               target_cat)
-            print_best_chains(chains, prefix=f'{source_cat.name} -> ')
-        else:
-            assert source_item
-            chains = find_routes(db, source_item, target_item, target_cat)
-            print_best_chains(chains)
-    elif args.command == 'dump-effects':
-        for eff in db.effects.values():
-            # FIXME: dump some useful effect data?
-            print(f'{eff.tag} -- {eff.name} : {eff.description}')
-    elif args.command == 'dump-categories':
-        for cat in db.categories.values():
-            print(f'{cat.tag} -- {cat.name}')
-    elif args.command == 'dump-json':
-        # FIXME
-        import json
-        json.dump(db.dump(), args.dump_file, default=json_dump_helper)
-    else:
-        raise ValueError(f'unkown command {args.command}')
-
-
-if __name__ == '__main__':
-    main()
