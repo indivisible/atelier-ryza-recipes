@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 from .ryza_parser import Database
-from .ryza_chain_finder import find_routes, find_routes_from_category,\
-        print_best_chains
+from .ryza_chain_finder import ChainFinder
 
 
 def main():
@@ -25,6 +24,10 @@ def main():
     item_info_parser.add_argument('item_names', nargs='*', type=str.lower)
 
     item_chain_parser = subparsers.add_parser('chain', help='find craft chain')
+    item_chain_parser.add_argument('--limit',
+                                   type=int,
+                                   default=10,
+                                   help='number of chains to display')
     item_chain_parser.add_argument('source',
                                    type=str.lower,
                                    help='category or item to start chain from')
@@ -68,30 +71,28 @@ def main():
                     item.print(args.verbose)
                     seen.add(item.tag)
     elif args.command == 'chain':
+        # find source
         source_item, source_cat = db.find_item_or_category(args.source)
         if not (source_item or source_cat):
             print(f'{args.source} not found!')
             return 1
         assert not (source_item and source_cat)
 
+        # find target
         target_item, target_cat = db.find_item_or_category(args.target)
         if not (target_item or target_cat):
             print(f'{args.target} not found!')
             return 1
         assert not (target_item and target_cat)
+
         source = source_item or source_cat
         assert source
         target = target_item or target_cat
         assert target
+
         print(f'Finding craft chain from {source.name} to {target.name}...')
-        if source_cat:
-            chains = find_routes_from_category(db, source_cat, target_item,
-                                               target_cat)
-            print_best_chains(chains, prefix=f'{source_cat.name} -> ')
-        else:
-            assert source_item
-            chains = find_routes(db, source_item, target_item, target_cat)
-            print_best_chains(chains)
+        finder = ChainFinder(db)
+        finder.print_paths(source.tag, target.tag, args.limit)
     elif args.command == 'dump-effects':
         for eff in db.effects.values():
             # FIXME: dump some useful effect data?
