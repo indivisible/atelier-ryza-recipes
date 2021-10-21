@@ -10,6 +10,7 @@ from pathlib import Path
 from itertools import count
 import string
 import csv
+import json
 
 # tag lists were pulled from `strings <game exe>`
 
@@ -554,29 +555,38 @@ class Database:
     def __init__(self, game: str, lang: str = 'en'):
         self.game = game
         self.lang = lang
-        self.data_dir = Path(f'{game}_data')
+        self.data_dir = Path(f'game_files/{game}/data')
         self.items = {}
         self.categories = {}
         self.effects = {}
-        self.elements = {}
         self.potentials = {}
+        self.elements = {}
+        self.ev_effects = {}
         self.ring_types = {}
+
+        with open(f'game_files/{game}/tags.json') as fp:
+            tags = json.load(fp)
+        # HACK: dlc items seem to be split: 40 items, then the rest
+        tags['items_dlc_1'] = tags['items_dlc'][:40]
+        tags['items_dlc_2'] = tags['items_dlc'][40:]
 
         self.strings = self.load_strings()
         # first load basic data: tags and names
         # these magic offsets are the same for ryza 1 & 2
         init_data = [
-            ('items', Item, 'name', 6750209),
-            ('categories', Category, 'category', 6815745),
-            ('effects', Effect, 'effect', 6881281),
-            ('potentials', Potential, 'potential', 6946817),
-            ('potentials', Potential, 'potential', 6946817),
-            ('ev_effects', EVEffect, 'ev_eff', 7208961),
+            (self.items, 'items', Item, 6750209),
+            (self.items, 'items_dlc_1', Item, 6750989),
+            (self.items, 'items_dlc_2', Item, 6751114),
+            (self.items, 'items_furniture', Item, 6751039),
+            (self.categories, 'categories', Category, 6815745),
+            (self.effects, 'effects', Effect, 6881281),
+            (self.potentials, 'potentials', Potential, 6946817),
+            (self.ev_effects, 'ev_effects', EVEffect, 7208961),
         ]
-        for attr, factory, key, offset in init_data:
-            tags_path = f'item_{key}_tags.txt'
-            val = self.get_tag_map(factory, tags_path, offset)
-            setattr(self, attr, val)
+        for target, attr, factory, offset in init_data:
+            val = self.get_tag_map(factory, tags[attr], offset)
+            target.update(val)
+            # setattr(self, attr, val)
 
         self.parse_effects()
         self.parse_items()
@@ -742,7 +752,6 @@ class Database:
                     if item.name == name:
                         break
                 else:
-                    # print(f'unknown item {name!r}')
                     continue
                 item.gathering = row['Location Info']
                 item.shop_data = row['Development Info']
@@ -778,7 +787,7 @@ class Database:
         for fd in root.iter('FieldData'):
             fd_tag = fd.get('tag', '')
             item = self.items[fd_tag]
-            assert item.recipe
+            assert item.recipe, (item.tag, item.name)
             # FIXME: I'm not sure EV-link item handling is correct
             item.recipe.parse_mixfield(fd)
             if not item.recipe.mixfield:
@@ -799,7 +808,7 @@ class Database:
             nonlocal recipe, item
             if not recipe:
                 return
-            assert item
+            assert item, list(map(xml_to_str, recipe))
             item.parse_recipedata(recipe)
             item = None
             recipe = []
@@ -812,7 +821,8 @@ class Database:
                 if item is None:
                     # 'reserve' items and some furniture?
                     continue
-            recipe.append(node)
+            if item is not None:
+                recipe.append(node)
         parse_current_recipe()
 
     def parse_items(self):
@@ -827,8 +837,16 @@ class Database:
                 item = self.with_name_id(self.items, name_id)
             except ValueError:
                 kind = node.get('kindTag')
-                assert kind == 'ITEM_KIND_BOOK'
-                continue
+                cat_0 = node.get('cat_0')
+                is_dlc = node.get('isDlc')
+                name = self.strings[name_id]
+                # I have no idea where tags for mists are in ryza 2
+                if kind == 'ITEM_KIND_IMPORTANT' and cat_0 is None:
+                    continue
+                elif kind == 'ITEM_KIND_MATERIAL' and is_dlc:
+                    continue
+                print(f'{name_id} {name} {xml_to_str(node)}')
+                raise ValueError(f'unkown item: {name} {name_id}')
             item.parse_itemdata(node)
 
     def parse_effects(self):
@@ -859,14 +877,8 @@ class Database:
                 root = ET.fromstring(stream.read())
         return root
 
-    def get_tag_map(self, factory, tags_path, offset: int):
+    def get_tag_map(self, factory, tags: list[str], offset: int):
         '''load tag list from flat file, then add ids and names from xml'''
-        tags_path = self.data_dir / tags_path
-        tags = []
-        with tags_path.open() as stream:
-            for line in stream:
-                tags.append(line.strip())
-
         name_map = {}
         for n, tag in enumerate(tags):
             name_id = n + offset
