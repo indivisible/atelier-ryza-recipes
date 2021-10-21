@@ -29,7 +29,6 @@ class TagFinder:
         item_types = [
             'MAT', 'MIX', 'EV_MIX', 'MIX', 'WEAPON', 'ARMOR', 'ACCESSORY',
             'EV_ACCESSORY', 'KEY', 'RUINS', 'QUEST', 'ESSENCE', 'BOOK',
-            'EVENT', 'FURNITURE', 'DLC'
         ]
 
         def find(pattern):
@@ -37,11 +36,13 @@ class TagFinder:
             regex = re.compile(pattern_str)
             return self.find_tags(regex)
 
-        self.tags['name'] = find('|'.join(item_types))
-        self.tags['category'] = find('CATEGORY')
-        self.tags['effect'] = find('EFF')
-        self.tags['ev_effect'] = find('EV_EFF')
-        self.tags['potential'] = find('POTENTIAL')
+        self.tags['items'] = find('|'.join(item_types))
+        self.tags['items_dlc'] = find('DLC')
+        self.tags['items_furniture'] = find('FURNITURE')
+        self.tags['categories'] = find('CATEGORY')
+        self.tags['effects'] = find('EFF')
+        self.tags['ev_effects'] = find('EV_EFF')
+        self.tags['potentials'] = find('POTENTIAL')
 
     def find_tags(self,
                   regex: re.Pattern,
