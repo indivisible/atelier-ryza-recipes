@@ -394,7 +394,7 @@ class Item(TaggedObject):
     # keys are UseEnemy, UseParty, Accessory
     ev_effects: dict[str, list[EVEffect]]
 
-    def parse_itemdata(self, node: ET.Element):
+    def post_init(self):
         self.children = []
         self.parents = []
         self.fixed_potentials = []
@@ -411,6 +411,7 @@ class Item(TaggedObject):
         self.essential_ingredients = []
         self.effects = []
 
+    def parse_itemdata(self, node: ET.Element):
         self.element_value = int(node.get('elemValue', 0))
         for elem in Element:
             attr = 'elem' + elem.value
@@ -593,7 +594,6 @@ class Database:
             target.update(val)
 
         self.parse_effects()
-        self.parse_items()
         # FIXME: something has to be wrong with DLC data parsing
         if self.game == 'ryza1':
             # ITEM_DLC_014 has no name or itemData
@@ -603,7 +603,7 @@ class Database:
             for bad_tag in ['ITEM_DLC_014', 'ITEM_DLC_037']:
                 bad = Item(self, -1, bad_tag, '???', -1)
                 self.items[bad_tag] = bad
-                bad.parse_itemdata(ET.Element('bad'))
+        self.parse_items()
         self.parse_recipedata()
         self.parse_mixfield()
         self.parse_descriptions()
@@ -841,6 +841,9 @@ class Database:
         parse_current_recipe()
 
     def parse_items(self):
+        for item in self.items.values():
+            # make sure evey item has basic structures
+            item.post_init()
         xml_path = self.data_dir / 'Saves/item/itemData_no.xml'
         root = self.open_xml(xml_path)
         for node in root.iter('itemData'):
