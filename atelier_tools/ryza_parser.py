@@ -240,8 +240,14 @@ class Mixfield:
     def __init__(self, recipe: Recipe, fielddata: ET.Element):
         self.rings = {}
 
-        for idx, node in self.find_reachable_rings(fielddata).items():
-            self.rings[idx] = MixfieldRing(recipe, node)
+        try:
+            for idx, node in self.find_reachable_rings(fielddata).items():
+                self.rings[idx] = MixfieldRing(recipe, node)
+        except Exception:
+            item = recipe.item
+            print(f'error parsing mixfield: {item.tag} {item.name}')
+            print(xml_to_str(fielddata))
+            raise
 
     def find_reachable_rings(self,
                              fielddata: ET.Element) -> dict[int, ET.Element]:
@@ -357,8 +363,8 @@ class ForgeEffect:
 
 
 class Item(TaggedObject):
-    level: int = 0
-    price: int = 0
+    level: int = -1
+    price: int = -1
 
     categories: list[Category]
     possible_categories: list[Category]
@@ -370,7 +376,7 @@ class Item(TaggedObject):
     children: list[Item]
     parents: list[Item]
 
-    recipe: Optional[Recipe]
+    recipe: Optional[Recipe] = None
     # structure: [effect_1, effect_2, effect_3, effect_4]
     # where effect_n: {effect_level: EffectSpec}
     # -1 is default effect_level, active without reaching anything in recipe
@@ -389,7 +395,6 @@ class Item(TaggedObject):
     ev_effects: dict[str, list[EVEffect]]
 
     def parse_itemdata(self, node: ET.Element):
-        self.recipe = None
         self.children = []
         self.parents = []
         self.fixed_potentials = []
@@ -433,6 +438,9 @@ class Item(TaggedObject):
                 self.ev_effects[key].append(effect)
 
     def apply_forge_effects(self, forge_effects: list[list[ForgeEffect]]):
+        # books have no itemdata in ryza1
+        if self.level < 0:
+            return
         for group in forge_effects:
             new_group = []
             for forge_effect in group:
@@ -566,9 +574,6 @@ class Database:
 
         with open(f'game_files/{game}/tags.json') as fp:
             tags = json.load(fp)
-        # HACK: dlc items seem to be split: 40 items, then the rest
-        tags['items_dlc_1'] = tags['items_dlc'][:40]
-        tags['items_dlc_2'] = tags['items_dlc'][40:]
 
         self.strings = self.load_strings()
         # first load basic data: tags and names
@@ -586,10 +591,19 @@ class Database:
         for target, attr, factory, offset in init_data:
             val = self.get_tag_map(factory, tags[attr], offset)
             target.update(val)
-            # setattr(self, attr, val)
 
         self.parse_effects()
         self.parse_items()
+        # FIXME: something has to be wrong with DLC data parsing
+        if self.game == 'ryza1':
+            # ITEM_DLC_014 has no name or itemData
+            # but has a recipe and a mixfield, and is referenced by
+            # ITEM_DLC_012's mixfield...
+            # maybe the item's name is at another offset?
+            for bad_tag in ['ITEM_DLC_014', 'ITEM_DLC_037']:
+                bad = Item(self, -1, bad_tag, '???', -1)
+                self.items[bad_tag] = bad
+                bad.parse_itemdata(ET.Element('bad'))
         self.parse_recipedata()
         self.parse_mixfield()
         self.parse_descriptions()
@@ -611,7 +625,7 @@ class Database:
             self.ring_types[i] = (name, desc)
 
     def parse_appear_ev_effect(self):
-        xml_path = self.data_dir / 'saves/item/item_appear_ev_effect.xml'
+        xml_path = self.data_dir / 'Saves/item/item_appear_ev_effect.xml'
         if not xml_path.exists():
             return
         root = self.open_xml(xml_path)
@@ -627,7 +641,7 @@ class Database:
             item.apply_ev_effects(specs)
 
     def parse_ev_effects(self):
-        xml_path = self.data_dir / 'saves/item/item_ev_effect_no.xml'
+        xml_path = self.data_dir / 'Saves/item/item_ev_effect_no.xml'
         if not xml_path.exists():
             return
         root = self.open_xml(xml_path)
@@ -652,7 +666,8 @@ class Database:
 
     def parse_forge_effects(self):
         for eq_type in ('accessory', 'weapon', 'armor'):
-            path_part = f'saves/weaponforge/{eq_type}forgeeffecttable.xml'
+            part = eq_type.title()
+            path_part = f'Saves/weaponForge/{part}ForgeEffectTable.xml'
             xml_path = self.data_dir / path_part
             # ryza 1 only has weapon forge
             if not xml_path.exists():
@@ -689,7 +704,7 @@ class Database:
         if not self.potentials:
             print('WARNING: potentials were not parsed!')
             return
-        xml_path = self.data_dir / 'saves/item/item_status.xml'
+        xml_path = self.data_dir / 'Saves/item/item_status.xml'
         root = self.open_xml(xml_path)
 
         nodes = root.iter('item_status')
@@ -706,7 +721,7 @@ class Database:
                     item.effects.append({-1: EffectSpec(effect, False)})
 
     def load_strings(self) -> dict[int, str]:
-        str_path = f'saves/text_{self.lang}/strcombineall.xml'
+        str_path = f'Saves/Text_{self.lang.upper()}/strCombineAll.xml'
         stringmap = {}
         root = self.open_xml(Path(self.data_dir / str_path))
         for node in root.iter('str'):
@@ -781,7 +796,7 @@ class Database:
             item.description = desc
 
     def parse_mixfield(self):
-        xml_path = self.data_dir / 'saves/mix/mixfielddata.xml'
+        xml_path = self.data_dir / 'Saves/mix/mixFieldData.xml'
         root = self.open_xml(xml_path)
 
         for fd in root.iter('FieldData'):
@@ -799,7 +814,7 @@ class Database:
                 extend.ev_base = item
 
     def parse_recipedata(self):
-        xml_path = self.data_dir / 'saves/item/itemrecipedata.xml'
+        xml_path = self.data_dir / 'Saves/item/itemRecipeData.xml'
         root = self.open_xml(xml_path)
         item = None
         recipe = []
@@ -826,7 +841,7 @@ class Database:
         parse_current_recipe()
 
     def parse_items(self):
-        xml_path = self.data_dir / 'saves/item/itemdata_no.xml'
+        xml_path = self.data_dir / 'Saves/item/itemData_no.xml'
         root = self.open_xml(xml_path)
         for node in root.iter('itemData'):
             name_id = node.get('nameID')
@@ -850,7 +865,7 @@ class Database:
             item.parse_itemdata(node)
 
     def parse_effects(self):
-        xml_path = self.data_dir / 'saves/item/item_effect_no.xml'
+        xml_path = self.data_dir / 'Saves/item/item_effect_no.xml'
         root = self.open_xml(xml_path)
         for node in root.iter('item_effect'):
             name_id = node.get('nameID')
@@ -868,6 +883,10 @@ class Database:
         return results[0]
 
     def open_xml(self, path: Path) -> ET.Element:
+        # switch rips yield case-sensitive files
+        # but steam rips are all-lowercase
+        if not path.exists():
+            path = Path(str(path).lower())
         # ElementTree sometimes struggles with shift-jis
         try:
             tree = ET.parse(path)
