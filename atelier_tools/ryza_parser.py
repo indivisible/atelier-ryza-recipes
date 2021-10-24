@@ -1065,7 +1065,7 @@ def json_dump_helper(obj, full=False):
     else:
         dump = {}
         for attr in dir(obj):
-            if attr.startswith('__'):
+            if attr.startswith('_'):
                 continue
             if attr == 'db':
                 continue
