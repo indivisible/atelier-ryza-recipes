@@ -28,7 +28,7 @@ export interface Item {
   fixed_potentials: string[];
   forge_effects: ForgeEffect[][];
   ev_effects: {[key: string]: string[]};
-};
+}
 
 export interface Category {
   idx: number;
@@ -36,7 +36,7 @@ export interface Category {
   name: string;
   name_id: number;
   description: string;
-};
+}
 
 export interface Effect {
   idx: number;
@@ -48,7 +48,7 @@ export interface Effect {
   int_value: (number | null);
   category_value: (string | null);
   element_value: (string | null);
-};
+}
 
 export interface Potential {
   idx: number;
@@ -56,7 +56,7 @@ export interface Potential {
   name: string;
   name_id: number;
   description: string;
-};
+}
 
 export interface EVEffect {
   idx: number;
@@ -65,7 +65,7 @@ export interface EVEffect {
   name_id: number;
   description: string;
   effects: string[];
-};
+}
 
 export interface Database {
   game: string;
@@ -77,7 +77,7 @@ export interface Database {
   elements: {[key: string]: string};
   ev_effects: {[key: string]: EVEffect};
   ring_types: {[key: string]: [string, string]};
-};
+}
 
 export interface Recipe {
   item: string;
@@ -90,21 +90,21 @@ export interface Recipe {
   ev_extend_item: (string | null);
   ev_extend_mat: (string | string | null);
   mixfield: (Mixfield | null);
-};
+}
 
 export interface EffectSpec {
   effect: string;
   is_essence: boolean;
-};
+}
 
 export interface ForgeEffect {
   forged_effect: string;
   source_effects: string[];
-};
+}
 
 export interface Mixfield {
   rings: {[key: string]: MixfieldRing};
-};
+}
 
 export interface MixfieldRing {
   type: number;
@@ -117,7 +117,7 @@ export interface MixfieldRing {
   parent_idx: (number | null);
   morph_item: (string | null);
   effects: {[key: string]: MixfieldRingValue};
-};
+}
 
 export interface MixfieldRingValue {
   item_value: (string | null);
@@ -125,5 +125,5 @@ export interface MixfieldRingValue {
   effect_value: (string | null);
   effect_sort_idx: number;
   is_locked: boolean;
-};
+}
 

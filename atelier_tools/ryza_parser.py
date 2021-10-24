@@ -1135,7 +1135,7 @@ def create_typescript_interface(cls, known, no_tags=False):
             continue
         type_str = unpack_type(type_, known, no_tags)
         result += f'  {name}: {type_str};\n'
-    result += '};\n'
+    result += '}\n'
     return result
 
 
