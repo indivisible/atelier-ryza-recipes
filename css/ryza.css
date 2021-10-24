@@ -1,0 +1,150 @@
+* {
+  --elem-fire-color: #f03a02;
+  --elem-ice-color: #04b5db;
+  --elem-thunder-color: #e3bb05;
+  --elem-air-color: #589b1d;
+}
+
+#find-chains-button:disabled {
+  background-color: transparent;
+  color: var(--bs-success);
+}
+
+#search-bar label {
+  display: inline-flex;
+  align-items: center;
+}
+
+svg.mixfield {
+  max-height: 600px;
+  background-color: #009;
+}
+
+circle.loop {
+  fill: #fff;
+  stroke-width: 3;
+  stroke: black;
+}
+
+circle.loop-essential {
+  stroke-width: 7;
+}
+
+circle.loop-elem-Fire {
+  stroke: var(--elem-fire-color);
+}
+
+circle.loop-elem-Ice {
+  stroke: var(--elem-ice-color);
+}
+
+circle.loop-elem-Thunder {
+  stroke: var(--elem-thunder-color);
+}
+
+circle.loop-elem-Air {
+  stroke: var(--elem-air-color);
+}
+
+path.connection {
+  stroke-width: 5;
+  stroke: #66f;
+}
+
+.inline-list {
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+}
+
+.inline-list li {
+  display: inline-block;
+}
+
+.inline-list li::after {
+  content: ", ";
+  margin-right: 0.3em;
+}
+
+.inline-list li:last-child::after {
+  content: "";
+}
+
+.optional:after {
+  content: "*";
+  color: red;
+}
+
+#result-table th {
+  text-align: left;
+}
+
+tbody.item-box:before {
+  line-height: 1em;
+  content: "\200C";
+  display: block;
+}
+
+.item-title {
+  background-color: #eee;
+}
+
+.item-title .item-tag {
+  padding-left: 1em;
+  font-weight: normal;
+  opacity: 0.6;
+  font-size: smaller;
+}
+
+.misc-info {
+  display: inline-block;
+  margin-left: 1em;
+  font-weight: normal;
+  font-size: smaller;
+}
+
+#results-container {
+  max-width: 40em;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.elem-icon > span {
+  display: none;
+}
+
+.atelier-ryza2-fire {
+  color: var(--elem-fire-color);
+}
+
+.atelier-ryza2-ice {
+  color: var(--elem-ice-color);
+}
+
+.atelier-ryza2-lightning {
+  color: var(--elem-thunder-color);
+}
+
+.atelier-ryza2-wind {
+  color: var(--elem-air-color);
+}
+
+.elem-inactive {
+  color: grey;
+}
+
+ul.elements li {
+  display: inline-block;
+  margin-left: 0.3em;
+  vertical-align: middle;
+}
+
+ul.elements {
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+}
+
+ul.parents li:after {
+  content: " 🡆";
+}
