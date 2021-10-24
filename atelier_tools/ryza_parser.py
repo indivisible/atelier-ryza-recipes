@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Generator, Iterable, Optional, TextIO, TypeVar, Union
+import typing
 import xml.etree.ElementTree as ET
 from enum import Enum
 from dataclasses import dataclass
@@ -43,10 +44,10 @@ ELEMENT_STR_MAP_GAME = {'ryza1': 4063340, 'ryza2': 4194395}
 EFFECT_DESC_OFFSET = 3538945
 
 RING_TYPE_OFFSETS = {
-        # label and help starting offsets
-        'ryza1': (10092545, 10092565),
-        'ryza2': (10092545, 10092585),
-        }
+    # label and help starting offsets
+    'ryza1': (10092545, 10092565),
+    'ryza2': (10092545, 10092585),
+}
 
 
 @dataclass
@@ -1075,3 +1076,87 @@ def json_dump_helper(obj, full=False):
                 value = {k.value: v for k, v in value.items()}
             dump[attr] = value
         return dump
+
+
+def unpack_type(type_, known, no_tags=False):
+    origin = typing.get_origin(type_)
+    args = typing.get_args(type_)
+    if origin is None:
+        # simple type
+        if type_ == Database:
+            raise ValueError('I can not serialize that')
+        elif type_ == int:
+            return 'number'
+        elif type_ == str:
+            return 'string'
+        elif type_ == bool:
+            return 'boolean'
+        elif isinstance(None, type_):
+            return 'null'
+        elif issubclass(type_, TaggedObject):
+            if no_tags:
+                if type_ not in known:
+                    known[type_] = None
+                return type_.__name__
+            return 'string'
+        elif type_ == Element:
+            return 'string'
+        else:
+            # mark the type as has to be visited
+            if type_ not in known:
+                known[type_] = None
+            return type_.__name__
+    elif origin == Union:
+        return '(' + ' | '.join(unpack_type(i, known, no_tags)
+                                for i in args) + ')'
+    elif origin == list:
+        assert len(args) == 1, args
+        return f'{unpack_type(args[0], known, no_tags)}[]'
+    elif origin == dict:
+        assert len(args) == 2, args
+        # javascript can only use strings as object index
+        k = 'string'
+        v = unpack_type(args[1], known, no_tags)
+        return f'{{[key: {k}]: {v}}}'
+    elif origin == tuple:
+        return '[' + ', '.join(unpack_type(i, known, no_tags)
+                               for i in args) + ']'
+    raise ValueError(f'unkown type {type_}')
+
+
+def create_typescript_interface(cls, known, no_tags=False):
+    result = f'export interface {cls.__name__} {{\n'
+    for name, type_ in typing.get_type_hints(cls).items():
+        # no need for paths in the json
+        if type_ == Path:
+            continue
+        # do not serialize backrefs to the db
+        if type_ == Database:
+            continue
+        type_str = unpack_type(type_, known, no_tags)
+        result += f'  {name}: {type_str};\n'
+    result += '};\n'
+    return result
+
+
+def create_typescript_interfaces():
+    # these are the top level tagged types in the db
+    known: dict[type, Optional[str]] = {
+    }
+    known[Database] = create_typescript_interface(Database, known, True)
+    while True:
+        changed = False
+        for cls, val in list(known.items()):
+            if val is None:
+                known[cls] = create_typescript_interface(cls, known)
+                changed = True
+        if not changed:
+            break
+    # this makes the type checker happy
+    strings: list[str] = []
+    for val in known.values():
+        assert val is not None
+        strings.append(val)
+    print('// Generated code, do not edit!')
+    print('// Use python3 -m atelier_tools dump-ts-types to generate\n')
+    print('\n'.join(strings))

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .ryza_parser import Database
+from .ryza_parser import Database, create_typescript_interfaces
 from .ryza_chain_finder import ChainFinder
 
 
@@ -41,6 +41,7 @@ def main():
 
     subparsers.add_parser('dump-effects', help='dump effect names')
     subparsers.add_parser('dump-categories', help='dump category names')
+    subparsers.add_parser('dump-ts-types', help='dump typescript types')
 
     dump_json = subparsers.add_parser('dump-json', help='dump effect names')
     dump_json.add_argument('dump_file', type=argparse.FileType('w'))
@@ -102,6 +103,8 @@ def main():
             print(f'{cat.tag} -- {cat.name}')
     elif args.command == 'dump-json':
         db.dump(args.dump_file)
+    elif args.command == 'dump-ts-types':
+        create_typescript_interfaces()
     else:
         raise ValueError(f'unkown command {args.command}')
 
