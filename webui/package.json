@@ -17,7 +17,7 @@
     "watch:ts": "onchange 'src/**/*.ts' -- npm run webpack:dev",
     "watch": "run-p build:dev watch:*",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "deploy": "gh-pages -d dist"
+    "deploy": "npm run build:prod && gh-pages -d dist"
   },
   "author": "",
   "license": "ISC",
