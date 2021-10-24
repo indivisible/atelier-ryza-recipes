@@ -49,6 +49,9 @@
     "parserOptions": {
       "ecmaVersion": 2020
     },
-    "rules": {}
+    "rules": {
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "no-prototype-builtins": "off"
+    }
   }
 }
