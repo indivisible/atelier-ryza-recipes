@@ -34,8 +34,6 @@ let toCategory: ConnectionMap;
 let fromCategory: ConnectionMap;
 
 export function buildChainCache(db: Database) {
-  if (connected)
-    return;
   connected = {};
   toCategory = {};
   fromCategory = {};
