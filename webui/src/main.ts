@@ -340,10 +340,12 @@ function setChain(startOrGoal: string, thing: Maybe<ChainItem>) {
 
 function updateChainSettings() {
   const container = document.getElementById('chain-container')!;
-  if (chainStart || chainGoal) {
+  document.getElementById('chain-results')!.innerHTML = '';
+  if (db && (chainStart || chainGoal)) {
     container.style.display = 'block';
   } else {
     container.style.display = 'none';
+    return;
   }
   const startDiv = document.getElementById('chain-start')!;
   const goalDiv = document.getElementById('chain-goal')!;
@@ -526,6 +528,9 @@ function buildIndex() {
 function gameChanged() {
   const gameInput = document.getElementById('game-input') as HTMLInputElement;
   db = null;
+  setChain('start', null);
+  setChain('goal', null);
+  updateChainSettings();
   fetch(gameInput.value).then(async response => {
     db = await response.json();
     if (!db)
@@ -550,7 +555,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateChainSettings();
   });
   document.getElementById('clear-chains-button')!.addEventListener('click', () => {
-    document.getElementById('chain-results')!.innerHTML = '';
     updateChainSettings();
   });
 });
