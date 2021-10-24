@@ -17,7 +17,7 @@ export function tag(tag: string, attributes: Attrs = {}, children: TagChildren =
 export function appendChildren(parent: HTMLElement, children: TagChildren) {
   if (!Array.isArray(children))
     children = [children];
-  for (let child of children) {
+  for (const child of children) {
     if (!(child instanceof Element))
       parent.appendChild(document.createTextNode(child));
     else

@@ -100,7 +100,7 @@ function findPathDijkstra(start: string, target: string): string[] {
       if (!minItem || minItem[1] > distances[i])
         minItem = [i, distances[i]];
     }
-    let [current, value] = minItem!;
+    const [current, value] = minItem!;
     unvisited.delete(current);
     if (current == target)
       break;
@@ -132,8 +132,8 @@ function findPathsYen(start: string, target: string, K=5) {
   if (!bestPaths[0].length)
     return [];
   const candidates: [string[], string][] = [];
-  let deletedNodes: {[node: string]: any} = {};
-  let deletedEdges: {[key: string]: any} = {};
+  let deletedNodes: {[node: string]: {[node: string]: Connection}} = {};
+  let deletedEdges: {[key: string]: [[string, string], Connection]} = {};
 
   for (let k=1; k < K; k++) {
     const lastA = bestPaths[bestPaths.length-1];
@@ -143,7 +143,7 @@ function findPathsYen(start: string, target: string, K=5) {
 
       for (const path of bestPaths) {
         if (rootPath.join() == path.slice(0, i+1).join()) {
-          const key = [path[i], path[i+1]];
+          const key: [string, string] = [path[i], path[i+1]];
           if (!deletedEdges.hasOwnProperty(key.toString()))
             deletedEdges[key.toString()] = [key, connected[key[0]][key[1]]];
           delete connected[key[0]][key[1]];

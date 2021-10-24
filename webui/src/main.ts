@@ -127,7 +127,7 @@ function renderElements(item: Item) {
 }
 
 function findLowestLevel(item: Item): number {
-  let parents = (item.parents || []).map(tag => db!.items[tag]);
+  const parents = (item.parents || []).map(tag => db!.items[tag]);
   return Math.min(item.level, ...parents.map(findLowestLevel));
 }
 
@@ -425,7 +425,7 @@ function update() {
   const getInput = (id: string) => document.getElementById(id) as HTMLInputElement;
   const nameQuery = getInput('name-input').value.trim().toUpperCase();
   const effectQuery = getInput('effect-input').value.trim().toUpperCase();
-  let results = [];
+  const results = [];
   const resultDiv = document.getElementById('results')!;
   const neededElements = [];
   resultDiv.innerHTML = '';
